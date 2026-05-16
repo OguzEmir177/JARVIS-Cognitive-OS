@@ -1,0 +1,435 @@
+"""
+[V8.1] J.A.R.V.I.S. Decoupled Execution Engine
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Merkezi orkestrasyon katmanı. 
+Sorumluluklar:
+    - Alt sistemlerin (Brain, Memory, IOBridge, PlanExecutor) başlatılması
+    - Ana girdi döngüsü (Input Loop)
+    - Görev durum yönetimi (TaskState)
+"""
+
+import asyncio
+import logging
+import re
+import uuid
+from typing import Callable, Optional
+
+from core.io_bridge import IOBridge
+from core.state_manager import TaskState, StateManager
+from core.task_queue import TaskQueue, TaskPriority
+from core.planner import parse_plan, ExecutionPlan
+from core.executor import Executor
+from core.reflector import Reflector
+from core.brain import GroqBrain
+from core.memory import MemoryManager
+from core.config import EngineConfig
+from errors import JarvisError
+
+logger = logging.getLogger("JARVIS.Engine")
+
+class ExecutionEngine:
+    """
+    J.A.R.V.I.S. v8.1 Merkezi Orkestratör.
+    """
+
+    def __init__(self, config: Optional[EngineConfig] = None) -> None:
+        self.config = config or EngineConfig()
+        self._running: bool = False
+
+        # decoupled bileşenler
+        self.io_bridge = IOBridge(self.config)
+        self.state_manager: StateManager = StateManager()
+        self.task_queue: TaskQueue = TaskQueue(maxsize=self.config.max_queue_size)
+        
+        # Core bileşenler (initialize içinde kurulur)
+        self.brain: Optional[GroqBrain] = None
+        self.memory: Optional[MemoryManager] = None
+        self.executor: Optional[Executor] = None
+        self.reflector: Optional[Reflector] = None
+        self.plan_executor: Optional["PlanExecutor"] = None
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #  IO BRIDGE PROXIES (GUI Compatibility)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    @property
+    def text_mode(self) -> bool:
+        return self.io_bridge.text_mode
+
+    @text_mode.setter
+    def text_mode(self, value: bool) -> None:
+        self.io_bridge.text_mode = value
+
+    @property
+    def text_input_queue(self) -> Optional[object]:
+        return self.io_bridge.text_input_queue
+
+    @text_input_queue.setter
+    def text_input_queue(self, value: Optional[object]) -> None:
+        self.io_bridge.text_input_queue = value
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #  DEPENDENCY INJECTION
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    def set_tts(self, tts_func: Callable) -> None:
+        self.io_bridge.set_tts(tts_func)
+
+    def set_stt(self, stt_func: Callable) -> None:
+        self.io_bridge.set_stt(stt_func)
+
+    def set_stt_instance(self, instance: object) -> None:
+        self.io_bridge.set_stt_instance(instance)
+
+    def reset_audio(self) -> None:
+        """Kilitlenen ses motorunu (STT) GUI üzerinden sıfırlamak için kullanılır."""
+        self.io_bridge.reset_audio_engine()
+
+    def set_gui_callback(self, callback: Callable) -> None:
+        self.io_bridge.set_gui_callback(callback)
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #  LIFECYCLE
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async def initialize(self) -> None:
+        """Tüm alt sistemleri başlatır."""
+        logger.info("Engine başlatılıyor...")
+
+        # 1. Memory
+        self.memory = await asyncio.get_running_loop().run_in_executor(
+            None, self._init_memory
+        )
+
+        # 2. Brain
+        self.brain = await self._init_brain_with_retry()
+
+        # 3. Executor
+        self.executor = Executor(
+            brain=self.brain,
+            memory=self.memory,
+            config=self.config,
+        )
+
+        # 4. Reflector
+        self.reflector = Reflector(
+            memory=self.memory,
+            brain=self.brain,
+        )
+
+        # 5. Plan Executor
+        from core.plan_executor import PlanExecutor
+        self.plan_executor = PlanExecutor(
+            self.brain, self.memory, self.executor, 
+            self.state_manager, self.io_bridge, self.config
+        )
+
+        # [V9.0] ContactManager — kişi profil yöneticisi başlatma
+        from core.contact_manager import ContactManager
+        self.contact_manager = ContactManager(memory_manager=self.memory)
+        self.contact_manager.initialize()
+
+        # PlanExecutor'a referans ver
+        self.plan_executor.contact_manager = self.contact_manager
+        logger.info("ContactManager başlatıldı ve PlanExecutor'a bağlandı.")
+        # [V9.0] Scheduler oluştur
+        from core.scheduler import JarvisScheduler
+        self.scheduler = JarvisScheduler(engine=self)
+        # [V9.2] PlanExecutor'a scheduler referansı ver (ScheduleTool context erişimi)
+        self.plan_executor.scheduler = self.scheduler
+        logger.info("Scheduler oluşturuldu.")
+        
+        # [V10.2] Otonom Bekçi (Watcher) — Dinamik Aralıklı Sürekli Analiz
+        from core.watcher import ProactiveWatcher
+        self.watcher = ProactiveWatcher(engine=self)
+        logger.info("Proaktif Watcher başlatıldı (Dinamik Aralık + Davranış Kalibrasyonu).")
+        
+        from core.memory_consolidator import MemoryConsolidator
+        self.memory_consolidator = MemoryConsolidator(memory=self.memory)
+        self.scheduler.add_daily(2, 0, "__SYSTEM_CONSOLIDATE__")
+        await asyncio.get_running_loop().run_in_executor(
+            None, self.memory_consolidator.clean_corrupted_records)
+        logger.info("[INIT] Hafıza temizliği tamamlandı.")
+        
+        from core.pattern_extractor import PatternExtractor
+        self.pattern_extractor = PatternExtractor(memory=self.memory)
+        self.memory.pattern_extractor = self.pattern_extractor
+        
+        logger.info("Engine başarıyla başlatıldı.")
+
+    async def start(self) -> None:
+        """Ana yürütme döngüsü."""
+        self._running = True
+        await self.io_bridge.speak("Efendim, sistemler hazır. Buyurun sizi dinliyorum.")
+        # [V9.0] Scheduler'ı arka planda başlat
+        self._scheduler_task = asyncio.create_task(self.scheduler.run())
+        # [V9.9] Watcher'ı arka planda başlat
+        self._watcher_task = asyncio.create_task(self.watcher.run())
+
+        while self._running:
+            try:
+                self.io_bridge.update_gui("DİNLİYOR")
+
+                user_input = await self.io_bridge.get_input()
+                if not user_input or len(user_input.strip()) < 2:
+                    continue
+
+                if self._is_shutdown_command(user_input):
+                    await self._handle_shutdown()
+                    break
+
+                # [V9.5] ShutdownTool sentinel kontrolü
+                if user_input == "__SHUTDOWN__":
+                    break
+
+                user_input = self._clean_wake_word(user_input)
+                if not user_input:
+                    await self.io_bridge.speak("Buyurun efendim, sizi dinliyorum.")
+                    continue
+
+                await self.process_input(user_input)
+
+                # [V9.5] ShutdownTool execute sonrası bayrağı kontrol et
+                if self.io_bridge.shutdown_requested:
+                    break
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Engine döngü hatası: {e}", exc_info=True)
+                await self.io_bridge.speak("Efendim, bir hata oluştu.")
+                await asyncio.sleep(1)
+
+        await self.shutdown()
+
+    async def shutdown(self) -> None:
+        """Tüm alt sistemleri temiz bir şekilde kapatır."""
+        self._running = False
+        logger.info("Engine kapatılıyor...")
+        
+        # [V9.9] Watcher'ı durdur
+        if hasattr(self, 'watcher'):
+            self.watcher.stop()
+            if hasattr(self, '_watcher_task') and not self._watcher_task.done():
+                self._watcher_task.cancel()
+                try:
+                    await self._watcher_task
+                except asyncio.CancelledError:
+                    pass
+
+        # [V9.0] Scheduler'ı durdur (Güvenli Kapanış)
+        if hasattr(self, 'scheduler'):
+            self.scheduler.stop()
+            
+        if hasattr(self, '_scheduler_task') and not self._scheduler_task.done():
+            self._scheduler_task.cancel()
+            try:
+                await self._scheduler_task
+            except asyncio.CancelledError:
+                pass
+        if self.executor:
+            await self.executor.cleanup()
+        logger.info("Engine kapatıldı.")
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #  PROCESSING
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async def process_input(self, user_input: str) -> None:
+        """Kullanıcı girdisini planlayıp yürütür."""
+        if user_input == "__SYSTEM_CONSOLIDATE__":
+            await asyncio.get_running_loop().run_in_executor(
+                None, self.memory_consolidator.consolidate)
+            await asyncio.get_running_loop().run_in_executor(
+                None, self.memory_consolidator.prune_duplicates)
+            return
+
+        task_id = str(uuid.uuid4())[:8]
+        task_state = self.state_manager.create_task(task_id=task_id, goal=user_input)
+
+        try:
+            await self.io_bridge.speak("Anlaşıldı Efendim.")
+            self.io_bridge.update_gui("İŞLENİYOR")
+
+            # 1. Beyin Düşünür
+            response = await self.brain.think(user_input)
+            if response == "RATE_LIMIT_ALL":
+                await self.io_bridge.speak("Efendim, beyin modülüm dinlenmeye geçti.")
+                return
+
+            # [V9.5] Plan Sızıntı Temizleyici — LLM'in ürettiği malformed
+            # kapanış etiketlerini ([/PROTOCOL], ./PROTOCOL PLAN, vb.) sil.
+            response = self._sanitize_llm_output(response)
+
+            # 2. Plan tespiti ve yürütme
+            plan = await self.plan_executor.detect_and_parse_plan(response, user_input)
+            
+            if plan:
+                await self.plan_executor.execute_plan(task_state, plan)
+            else:
+                # [V9.8] Karışık İçerik Yönetimi: Protokol öncesi metin varsa seslendir.
+                protocol_start = response.find("[PROTOCOL:")
+                if protocol_start > 0:
+                    preceding_text = response[:protocol_start].strip()
+                    if preceding_text:
+                        await self.io_bridge.speak(preceding_text)
+                    remaining_response = response[protocol_start:]
+                    await self.plan_executor.execute_single(task_state, remaining_response)
+                elif protocol_start == 0:
+                    await self.plan_executor.execute_single(task_state, response)
+                else:
+                    await self.io_bridge.speak(response)
+                    self.state_manager.complete_task(task_id)
+
+            # 3. Reflection
+            if self.reflector:
+                # [V8.1 FIX] BONUS: Exception'lar artık sessizce yutulmuyor.
+                # add_done_callback ile hata olursa log'a düşer.
+                _ref_task = asyncio.create_task(self.reflector.reflect(task_state))
+                _ref_task.add_done_callback(
+                    lambda t: logger.warning(f"Reflection task hatası: {t.exception()!r}")
+                    if not t.cancelled() and t.exception() is not None
+                    else None
+                )
+            
+            if hasattr(self, 'pattern_extractor'):
+                await asyncio.get_running_loop().run_in_executor(
+                    None, self.pattern_extractor.extract_patterns)
+
+        except Exception as e:
+            logger.error(f"İşleme hatası [{task_id}]: {e}")
+            self.state_manager.fail_task(task_id, str(e))
+            await self.io_bridge.speak("Efendim, bir sorun oluştu.")
+        finally:
+            self.io_bridge.update_gui("DİNLİYOR")
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #  HELPERS
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    @staticmethod
+    def _sanitize_llm_output(text: str) -> str:
+        """
+        [V9.5] Plan Sızıntı Temizleyici (Plan Leak Sanitizer)
+        ─────────────────────────────────────────────────────
+        LLM bazen [PLAN] bloğunu [/PLAN] yerine uydurma etiketle kapatır.
+        Bu etiketler parser'dan kaçıp kullanıcı ekranına ham string olarak sızar.
+
+        Temizlenen örüntüler:
+          ./PROTOCOL PLAN   [en sık görülen halüsinasyon]
+          /PROTOCOL PLAN
+          [/PROTOCOL]
+          [/PROTOCOL PLAN]
+          [PLAN_END]  [END_PLAN]  [/PLAN_END]
+          ./PLAN  /PLAN (tek başına yanlış yerde)
+
+        Strateji:
+          - Önce köşeli parantezli tam örüntüler (en spesifik → greedy sorunu önler)
+          - Sonra slash-prefix genel örüntüler
+          - [/PLAN] (geçerli kapanış) DOKUNULMAZ.
+        """
+        if not text:
+            return text
+
+        # ── 1. Köşeli parantez içindeki uydurma kapanışlar (ÖNCELİKLİ) ───
+        # [/PROTOCOL PLAN], [/PROTOCOL], [PLAN_END], [END_PLAN], [PLAN_CLOSE]
+        text = re.sub(
+            r'\[\.?/?(?:PROTOCOL(?:[:\s]+PLAN)?|PLAN_END|END_PLAN|PLAN_CLOSE|/PLAN_END)\]',
+            '', text, flags=re.IGNORECASE
+        )
+
+        # ── 2. Nokta-slash prefix ile gelen uydurma etiketler ─────────────
+        # Örn: "Google'da aratıldı ./PROTOCOL PLAN"
+        text = re.sub(
+            r'\.?\s*/\s*PROTOCOL(?:[:\s]+PLAN)?\b',
+            '', text, flags=re.IGNORECASE
+        )
+
+        # ── 3. Slash-prefix genel uydurma etiketler ───────────────────────
+        # /PROTOCOL, /PROTOCOL PLAN  (köşeli parantez olmadan)
+        text = re.sub(
+            r'(?<!\[)/\s*PROTOCOL(?:[:\s]+PLAN)?\b',
+            '', text, flags=re.IGNORECASE
+        )
+
+        # ── 4. Protokol Sızıntısı Temizleyici (Metin içindeki sızıntılar) ─
+        # Eğer bir satırda [PROTOCOL: REMEMBER] gibi bir ifade geçiyorsa ve bu bir komut değil de
+        # cümlenin ortasındaysa onu temizle.
+        # [V9.8] Sadece komut başlangıcı olmayanları temizle.
+        def _leak_fixer(match):
+            full_match = match.group(0)
+            # Eğer satır başındaysa veya öncesinde sadece boşluk varsa komut kabul et (dokunma)
+            # Ama metnin içindeyse ("Lütfen [PROTOCOL: ...]") temizle.
+            start_pos = match.start()
+            if start_pos > 0 and text[start_pos-1] not in ['\n', ' ']:
+                return ""
+            return full_match
+
+        text = re.sub(r'\[PROTOCOL:\s*\w+\]', _leak_fixer, text, flags=re.IGNORECASE)
+
+        # ── 4. Artık boş satırları temizle ────────────────────────────────
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r'[ \t]+\n', '\n', text)
+
+        return text.strip()
+
+    def _is_shutdown_command(self, text: str) -> bool:
+        return any(cmd in text.lower() for cmd in ["sistemi kapat", "jarvis kapan", "kendini kapat", "çıkış yap"])
+
+    def _clean_wake_word(self, text: str) -> str:
+        # v8.0 logic simplified for orchestrator
+        return text.strip()
+
+    async def _handle_shutdown(self) -> None:
+        """
+        [V9.5 FIX] Keyword ile tetiklenen kapatma yolu.
+        Artık io_bridge.request_shutdown() çağrılıyor:
+          → GUI'ye 'KAPATILIYOR' sinyali gider → _on_close() tetiklenir
+          → Sentinel kuyruğa girer → blocking get() açılır
+          → self._running = False  (engine döngüsü kırılır)
+        """
+        await self.io_bridge.speak("Sistemler kapatılıyor. İyi günler dilerim Efendim.")
+        self.io_bridge.request_shutdown()   # ← GUI sinyali + bayrak + sentinel
+        self._running = False
+
+    def _init_memory(self):
+        from core.memory import MemoryManager
+        # [V8.1 Fix] Pass path string, not config object
+        m = MemoryManager(db_path=self.config.memory_db_path)
+        m.initialize()
+        return m
+
+    async def _init_brain_with_retry(self) -> "GroqBrain":
+        """
+        [V8.1 FIX] BUG #3: Gerçek retry döngüsü — önceki versiyonda check_connection()
+        dönüş değeri yok sayılıyor ve hiçbir retry yapılmıyordu.
+
+        Strateji:
+            - Her başarısız denemeden sonra üstel geri çekilme (2^attempt saniye)
+            - Tüm denemeler tükenirse kısıtlı modda devam et (çökme değil)
+        """
+        from core.brain import GroqBrain
+        b = GroqBrain(self.config, memory_manager=self.memory)
+
+        for attempt in range(self.config.brain_connect_retries):
+            connected = await b.check_connection()
+            if connected:
+                logger.info(f"Brain bağlantısı kuruldu (deneme {attempt + 1}/{self.config.brain_connect_retries})")
+                return b
+
+            wait_s = 2 ** attempt  # 1s, 2s, 4s, 8s, 16s…
+            logger.warning(
+                f"Brain bağlantı denemesi {attempt + 1}/{self.config.brain_connect_retries} "
+                f"başarısız. {wait_s}s sonra tekrar denenecek..."
+            )
+            await asyncio.sleep(wait_s)
+
+        # Tüm denemeler başarısız — kısıtlı modda başlat (RuntimeError atmıyoruz)
+        logger.error(
+            "Brain bağlantısı hiç kurulamadı! "
+            "Sistem kısıtlı modda (bağlantısız) başlatılıyor."
+        )
+        return b
+
+    def _setup_logging(self) -> None:
+        pass

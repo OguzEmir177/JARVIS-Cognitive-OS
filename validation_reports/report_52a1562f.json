@@ -1,0 +1,17 @@
+[
+    {
+        "name": "Workflow Inference Benchmark",
+        "status": "PASS",
+        "metrics": {
+            "memory_growth_mb": 0.09765625,
+            "cpu_usage_avg": 0.0,
+            "duration_sec": 0.2016890048980713,
+            "custom": {
+                "top_confidence": 0.8999999999999999,
+                "predicted_next": "483c83f41b19",
+                "prediction_after_interruption": "483c83f41b19"
+            },
+            "errors": []
+        }
+    }
+]

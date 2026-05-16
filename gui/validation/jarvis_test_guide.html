@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>J.A.R.V.I.S. V13 — Manual Test Guide</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #040810; color: #c8d8f0; min-height: 100vh; }
+:root { --blue: #00c8ff; --green: #00e87a; --orange: #ff6b35; --yellow: #ffd700; --panel: #070d1c; --card: #091224; --border: #0d2040; }
+
+header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+header h1 { font-size: 18px; color: var(--blue); font-weight: 600; }
+.progress-wrap { flex: 1; background: #0d2040; border-radius: 4px; height: 6px; }
+.progress-bar { background: var(--green); border-radius: 4px; height: 6px; transition: width .4s; }
+.progress-label { font-size: 12px; color: #7098c0; min-width: 80px; text-align: right; }
+
+.layout { display: grid; grid-template-columns: 280px 1fr 280px; gap: 0; height: calc(100vh - 57px); }
+
+/* LEFT: Test list */
+.sidebar { background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px; }
+.sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #4a7090; padding: 8px 4px 4px; }
+.test-item { display: flex; align-items: center; gap: 10px; padding: 10px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; transition: background .15s; border: 1px solid transparent; }
+.test-item:hover { background: #0d2040; }
+.test-item.active { background: #0d2040; border-color: var(--blue); }
+.test-item.done-pass { border-left: 3px solid var(--green); }
+.test-item.done-fail { border-left: 3px solid var(--orange); }
+.test-item.done-partial { border-left: 3px solid var(--yellow); }
+.test-item .num { font-size: 11px; color: #4a7090; min-width: 22px; }
+.test-item .name { font-size: 13px; flex: 1; }
+.test-item .badge { font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+.badge-pass { background: rgba(0,232,122,.15); color: var(--green); }
+.badge-fail { background: rgba(255,107,53,.15); color: var(--orange); }
+.badge-partial { background: rgba(255,215,0,.12); color: var(--yellow); }
+.badge-skip { background: rgba(74,112,144,.2); color: #4a7090; }
+
+/* CENTER: Main content */
+.main { overflow-y: auto; padding: 24px 32px; }
+.test-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+.test-num-big { font-size: 48px; font-weight: 700; color: #0d2040; line-height: 1; }
+.test-title { font-size: 22px; font-weight: 600; color: var(--blue); }
+.test-subtitle { font-size: 13px; color: #7098c0; margin-top: 4px; }
+.tag { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 4px; margin-right: 6px; margin-top: 6px; }
+.tag-manual { background: rgba(255,107,53,.15); color: var(--orange); }
+.tag-automated { background: rgba(0,200,255,.1); color: var(--blue); }
+.tag-time { background: rgba(255,215,0,.1); color: var(--yellow); }
+
+.section-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+.section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #4a7090; margin-bottom: 12px; }
+.steps { list-style: none; }
+.steps li { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #0a1828; font-size: 14px; line-height: 1.5; }
+.steps li:last-child { border-bottom: none; }
+.steps li .step-num { min-width: 22px; height: 22px; background: #0d2040; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--blue); flex-shrink: 0; margin-top: 1px; }
+
+.ask-box { background: #060b14; border: 1px solid #1a3a5c; border-left: 3px solid var(--blue); border-radius: 6px; padding: 14px 16px; margin: 10px 0; font-size: 14px; color: var(--blue); cursor: pointer; position: relative; user-select: all; }
+.ask-box::after { content: "📋 kopyala"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #4a7090; }
+.ask-box:hover::after { color: var(--blue); }
+.ask-box.copied::after { content: "✓ kopyalandı"; color: var(--green); }
+
+.expect-box { background: #060e06; border: 1px solid #0d3010; border-left: 3px solid var(--green); border-radius: 6px; padding: 12px 16px; margin: 6px 0; }
+.expect-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #3a7040; margin-bottom: 6px; }
+.expect-items { font-size: 13px; color: #80c890; }
+.expect-items span { display: inline-block; background: rgba(0,232,122,.08); border-radius: 4px; padding: 2px 8px; margin: 2px; }
+
+.warn-box { background: #0e0800; border: 1px solid #302010; border-left: 3px solid var(--yellow); border-radius: 6px; padding: 12px 16px; margin: 6px 0; font-size: 13px; color: #c8a040; }
+
+.result-section { margin-top: 16px; }
+.result-section label { display: block; font-size: 12px; color: #4a7090; margin-bottom: 8px; }
+textarea { width: 100%; background: #060b14; border: 1px solid var(--border); border-radius: 6px; padding: 10px; color: #c8d8f0; font-size: 13px; resize: vertical; min-height: 80px; font-family: inherit; }
+textarea:focus { outline: none; border-color: var(--blue); }
+.rating-row { display: flex; gap: 8px; margin: 10px 0; }
+.rating-btn { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: #7098c0; cursor: pointer; font-size: 12px; text-align: center; transition: all .15s; }
+.rating-btn:hover { border-color: #2a5080; color: #c8d8f0; }
+.rating-btn.r-pass { border-color: var(--green); background: rgba(0,232,122,.1); color: var(--green); }
+.rating-btn.r-partial { border-color: var(--yellow); background: rgba(255,215,0,.08); color: var(--yellow); }
+.rating-btn.r-fail { border-color: var(--orange); background: rgba(255,107,53,.1); color: var(--orange); }
+.rating-btn.r-skip { border-color: #2a4060; background: rgba(42,64,96,.2); color: #4a7090; }
+
+.nav-buttons { display: flex; gap: 10px; margin-top: 20px; }
+.btn { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: all .15s; }
+.btn-primary { background: var(--blue); color: #040810; }
+.btn-primary:hover { opacity: .85; }
+.btn-secondary { background: var(--card); border: 1px solid var(--border); color: #7098c0; }
+.btn-secondary:hover { border-color: #2a5080; color: #c8d8f0; }
+.btn-report { background: var(--green); color: #040810; }
+
+/* RIGHT: Summary panel */
+.summary-panel { background: var(--panel); border-left: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+.summary-panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #4a7090; margin-bottom: 12px; }
+.metric-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.metric-row:last-child { border-bottom: none; }
+.metric-val { font-weight: 600; }
+.metric-val.green { color: var(--green); }
+.metric-val.orange { color: var(--orange); }
+.metric-val.yellow { color: var(--yellow); }
+.metric-val.blue { color: var(--blue); }
+.score-circle { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 16px; }
+.score-big { font-size: 24px; font-weight: 700; }
+.score-label { font-size: 10px; color: #4a7090; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🤖 J.A.R.V.I.S. V13 — Manual Test Suite</h1>
+  <div class="progress-wrap"><div class="progress-bar" id="progress" style="width:0%"></div></div>
+  <div class="progress-label" id="progress-label">0 / 17</div>
+  <button class="btn btn-report" onclick="generateReport()" style="font-size:13px; padding:8px 14px;">📊 Rapor İndir</button>
+</header>
+
+<div class="layout">
+
+<!-- LEFT SIDEBAR -->
+<div class="sidebar">
+  <h2>Testler</h2>
+  <div id="test-list"></div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main" id="main-content"></div>
+
+<!-- RIGHT SUMMARY -->
+<div class="summary-panel">
+  <h2>Özet</h2>
+  <div class="score-circle" id="score-circle">
+    <div class="score-big" id="score-big">—</div>
+    <div class="score-label">Genel Skor</div>
+  </div>
+  <div id="metrics">
+    <div class="metric-row"><span>Geçen</span><span class="metric-val green" id="m-pass">0</span></div>
+    <div class="metric-row"><span>Kısmi</span><span class="metric-val yellow" id="m-partial">0</span></div>
+    <div class="metric-row"><span>Başarısız</span><span class="metric-val orange" id="m-fail">0</span></div>
+    <div class="metric-row"><span>Atlanan</span><span class="metric-val" id="m-skip" style="color:#4a7090">0</span></div>
+    <div class="metric-row"><span>Tamamlanan</span><span class="metric-val blue" id="m-done">0/17</span></div>
+    <div class="metric-row"><span>Süre</span><span class="metric-val" id="m-time" style="color:#7098c0">00:00</span></div>
+  </div>
+  <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
+  <h2>Son Notlar</h2>
+  <div id="recent-notes" style="font-size:12px; color:#4a7090; line-height:1.8;"></div>
+</div>
+
+</div>
+
+<script>
+const TESTS = [
+  {
+    id: 1, name: "Workflow Understanding", time: "5-10dk",
+    subtitle: "Sistemin açık uygulamalardan anlamlı çıkarım yapıp yapamadığını ölçer",
+    steps: [
+      "VSCode aç — bir kod dosyası aç",
+      "Chrome aç — bir docs veya StackOverflow sayfası aç",
+      "Terminal/PowerShell aç",
+      "Birkaç dakika normal çalış (gerçekten kod yaz ya da oku)",
+      "J.A.R.V.I.S.'e aşağıdaki soruyu sor:"
+    ],
+    question: "Şu an ne yapıyor olabileceğimi düşünüyorsun?",
+    expects: ["coding workflow", "debugging", "dependency fixing", "research workflow", "development pipeline"],
+    fail_if: "sadece 'kod yazıyorsun' veya tek kelime cevap",
+    warn: "Sistem görsel olarak aktif değilse (ekran analizi açık değilse) bu test çalışmayabilir"
+  },
+  {
+    id: 2, name: "Thumbnail Workflow", time: "5-10dk",
+    subtitle: "Görsel yaratım workflow'unu anlayabilmeli",
+    steps: [
+      "Photoshop veya GIMP aç (yoksa Paint kullan)",
+      "Chrome'da birkaç referans görsel aç",
+      "Explorer'da assets klasörünü aç",
+      "Biraz çalış (herhangi bir şey çiz/düzenle)",
+      "Soruyu sor:"
+    ],
+    question: "Şu anki workflow hakkında ne çıkarım yaptın?",
+    expects: ["thumbnail production", "asset collection", "export preparation", "editing pipeline", "visual creation"],
+    fail_if: "sadece 'Photoshop kullanıyorsun'"
+  },
+  {
+    id: 3, name: "Workflow Transition", time: "5-10dk",
+    subtitle: "Bağlam değişimini algılamalı",
+    steps: [
+      "VSCode'da 5-10 dk kod yaz",
+      "Aniden Discord, YouTube veya Spotify aç",
+      "2-3 dk orada kal",
+      "Soruyu sor:"
+    ],
+    question: "Workflow değişikliği algıladın mı?",
+    expects: ["eski workflow'u hatırlaması", "interruption algılaması", "context switch", "coding → entertainment"],
+    fail_if: "sadece şu anki uygulamaları söylüyorsa"
+  },
+  {
+    id: 4, name: "Next Action Prediction", time: "5-10dk",
+    subtitle: "Kullanıcı konuşmadan sistemin ne düşündüğü",
+    steps: [
+      "Kod yaz",
+      "Build/run komutu çalıştır",
+      "Hata üret (kasıtlı typo yapabilirsin)",
+      "Terminal'de hata mesajı görün",
+      "Hiçbir şey DEME — sadece bekle 1-2 dk",
+      "Sonra sor:"
+    ],
+    question: "Şu an ne yapıyor olduğumu tahmin ediyorsun?",
+    expects: ["debugging", "log checking", "browser search", "dependency investigation", "error analysis"],
+    fail_if: "hiçbir tahmin üretmiyorsa veya genel cevap veriyorsa"
+  },
+  {
+    id: 5, name: "Export Prediction", time: "3-5dk",
+    subtitle: "Uzun süren işlem sonrası ne olacağını tahmin etmeli",
+    steps: [
+      "Bir video export, büyük dosya kopyalama veya uzun build başlat",
+      "İşlem devam ederken sor:"
+    ],
+    question: "Bu işlem bittikten sonraki adımım hakkında tahminin var mı?",
+    expects: ["upload preparation", "quality check", "compression", "thumbnail prep", "file review"],
+    fail_if: "sadece şu anki işlemi açıklıyorsa"
+  },
+  {
+    id: 6, name: "Ambiguous Workflow", time: "5dk",
+    subtitle: "Karışık durumda belirsizliği kabul etmeli",
+    steps: [
+      "Karışık uygulamalar aç: oyun + VS Code + Discord + Chrome",
+      "Hepsini biraz kullan (ciddi hiçbir şey yapma)",
+      "Soruyu sor:"
+    ],
+    question: "Şu an hangi hipotezleri oluşturdun?",
+    expects: ["multiple hypotheses", "uncertainty", "confidence levels", "belirsizlik ifadesi", "birden fazla senaryo"],
+    fail_if: "tek kesin cevap veriyorsa ('oyun oynuyorsun') — belirsizliği kabul etmeli"
+  },
+  {
+    id: 7, name: "False Hypothesis Recovery", time: "10dk",
+    subtitle: "Yanlış hipotezi zamanla düzeltmeli",
+    steps: [
+      "5 dk kod yaz (sistem 'coding' sanısın)",
+      "5 dk oyun oyna veya YouTube izle",
+      "Tekrar koda dön",
+      "Sor:"
+    ],
+    question: "Az önce workflow değişikliği oldu mu? Hipotezlerin nasıl değişti?",
+    expects: ["eski hipotezin azaldığı", "yeni hipotezin güçlendiği", "decay fark edilmesi"],
+    fail_if: "hâlâ aynı hipotezi tutuyorsa veya değişimi göremiyorsa"
+  },
+  {
+    id: 8, name: "Delayed Recall", time: "35dk",
+    subtitle: "Semantic bellek rekonstrüksiyonu",
+    steps: [
+      "30 dakika boyunca belirli bir işle uğraş (örn: bir kod projesi)",
+      "30 dk sonra sor (araya başka şeyler girebilir):"
+    ],
+    question: "Yarım saat önce ne yapıyordum?",
+    expects: ["semantik yeniden yapılandırma", "workflow continuity", "genel aktivite özeti", "doğru zaman çerçevesi"],
+    fail_if: "hiçbir şey hatırlamıyorsa veya tamamen uyduruyorsa",
+    warn: "Bu test için en az 30 dk gerçek çalışma gerekir"
+  },
+  {
+    id: 9, name: "Interrupted Workflow", time: "65dk",
+    subtitle: "Kesilen göreve dönme",
+    steps: [
+      "Bir işe başla (örn: yarım kalan bir dosyayı düzenlemeye başla)",
+      "İşi bırak, 1 saat başka şey yap veya bilgisayardan uzaklaş",
+      "Dön ve sor:"
+    ],
+    question: "Az önce ne yapıyordum? Kaldığım yerden devam etmemi öneriyor musun?",
+    expects: ["kaldığın noktayı hatırlaması", "devam önerisi", "workflow continuity", "context reconstruction"],
+    fail_if: "tamamen unutmuşsa",
+    warn: "1 saat gerektirir"
+  },
+  {
+    id: 10, name: "Autonomous Assistance", time: "10-20dk",
+    subtitle: "Doğru zamanda, doğru miktarda yardım",
+    steps: [
+      "Uzun bir işlem başlat (export, build, download)",
+      "Bekle — sistem ne yapar?",
+      "Soru SORMA — sadece izle"
+    ],
+    question: null,
+    expects: ["işlem bittikten sonra öneride bulunması", "bekleme sırasında spam yapmaması", "yardım teklifi (çok değil, az değil)"],
+    fail_if: "hiç ses çıkarmıyorsa veya sürekli konuşuyorsa",
+    manual_observe: true
+  },
+  {
+    id: 11, name: "Wrong Proactivity", time: "15dk",
+    subtitle: "Gereksiz konuşmamalı",
+    steps: [
+      "15 dakika sessizce çalış",
+      "Hiçbir şey sormadan sadece iş yap",
+      "Sistemin ne yaptığını gözlemle"
+    ],
+    question: null,
+    expects: ["sessiz kalması", "sadece gerçekten önemli durumda konuşması"],
+    fail_if: "dakikada 1'den fazla kez konuşuyorsa veya gereksiz bildirim veriyorsa",
+    manual_observe: true
+  },
+  {
+    id: 12, name: "Self Awareness", time: "2dk",
+    subtitle: "Kendi sınırlarını bilmeli",
+    steps: ["Sadece soruyu sor:"],
+    question: "Şu an hangi konularda tahminlerine daha az güveniyorsun?",
+    expects: ["uncertainty awareness", "confidence calibration", "sınırlı bilgi itirafı", "spesifik belirsizlik alanları"],
+    fail_if: "her şeyi bildiğini iddia ediyorsa veya soyut cevap veriyorsa"
+  },
+  {
+    id: 13, name: "Error Reflection", time: "5-8dk",
+    subtitle: "Hataları fark edip yeniden planlamalı",
+    steps: [
+      "Bir görevi J.A.R.V.I.S.'e yaptır (örn: 'bir uygulamayı aç')",
+      "İşlemin BAŞARISIZ olduğunu gör",
+      "Yeniden sor:"
+    ],
+    question: "Az önceki işlem başarısız oldu mu? Farklı bir strateji dener misin?",
+    expects: ["hata tespiti", "replanning", "alternatif strateji önerisi", "failure acknowledgment"],
+    fail_if: "hataları görmezden geliyorsa veya aynı şeyi tekrarlıyorsa"
+  },
+  {
+    id: 14, name: "Long Session", time: "180-360dk",
+    subtitle: "3-6 saat açık bırak, sistem bozuluyor mu?",
+    steps: [
+      "session_telemetry.py'yi başlat: python session_telemetry.py 60",
+      "Sistemi normal kullan — 3-6 saat",
+      "Her saatte bir: cevap kalitesi, hız, tutarlılık not et",
+      "Ctrl+C ile telemetri durdur → session_telemetry.json kontrol et"
+    ],
+    question: null,
+    expects: ["RAM büyümesinin < 200MB olması", "CPU'nun idle'da < 10% olması", "cevap kalitesinin düşmemesi"],
+    fail_if: "RAM sürekli büyüyorsa, cevaplar tutarsız hale geliyorsa, sistem yavaşlıyorsa",
+    manual_observe: true,
+    warn: "Bu test 3-6 saat alır. session_telemetry.py paralel çalıştırılmalı"
+  },
+  {
+    id: 15, name: "Event Storm", time: "5dk",
+    subtitle: "Hızlı pencere değişiminde hallucination var mı?",
+    steps: [
+      "5 saniyede bir farklı uygulama aç (10-15 uygulama)",
+      "Sekmeleri hızlıca değiştir",
+      "Ardından sor:"
+    ],
+    question: "Az önce ne gördün? Hangi workflow'daysam?",
+    expects: ["makul özet", "hallucination YOK", "belirsizlik itirafı mümkün"],
+    fail_if: "tamamen yanlış uygulama adları söylüyorsa veya crash ediyorsa"
+  },
+  {
+    id: 16, name: "Unknown Workflow", time: "10dk",
+    subtitle: "Hiç görmediği kombinasyonu reasoning ile çözmeli",
+    steps: [
+      "Alışılmadık bir kombinasyon kur:",
+      "Blender + Python + Discord + Browser",
+      "Veya: Figma + Notion + Terminal + Obsidian",
+      "Biraz çalış, sonra sor:"
+    ],
+    question: "Şu an ne tür bir iş yapıyor olabilirim?",
+    expects: ["ezber DEĞİL", "reasoning ile çıkarım", "3D + code = 3D app dev gibi mantıklı kombinasyon"],
+    fail_if: "sadece uygulama isimlerini sıralıyorsa, çıkarım yapmıyorsa"
+  },
+  {
+    id: 17, name: "Silence Test", time: "120-180dk",
+    subtitle: "Konuşmadan anlıyor mu, yoksa trigger bekliyor mu?",
+    steps: [
+      "2-3 saat boyunca J.A.R.V.I.S.'e hiçbir şey SORMA",
+      "Sadece normal çalış",
+      "Sistemin davranışını gözlemle",
+      "Sonra sor:"
+    ],
+    question: "Son 2 saatte ne öğrendin benim hakkımda?",
+    expects: ["gerçek gözlem paylaşması", "pattern fark etmesi", "anlama kanıtı", "spesifik detaylar"],
+    fail_if: "genel laflar söylüyorsa, hiçbir şey fark etmemişse",
+    manual_observe: true,
+    warn: "2-3 saat gerektirir. En değerli test budur"
+  }
+];
+
+const results = {};
+let currentTest = 0;
+let startTime = Date.now();
+
+// ── Timer ──
+setInterval(() => {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('m-time').textContent = m + ':' + s;
+}, 1000);
+
+// ── Render test list ──
+function renderList() {
+  const list = document.getElementById('test-list');
+  list.innerHTML = '';
+  TESTS.forEach((t, i) => {
+    const r = results[t.id];
+    let cls = i === currentTest ? 'active' : '';
+    let badgeHtml = '';
+    if (r) {
+      cls += r.rating === 'pass' ? ' done-pass' : r.rating === 'fail' ? ' done-fail' : r.rating === 'partial' ? ' done-partial' : ' done-skip';
+      const badge_cls = r.rating === 'pass' ? 'badge-pass' : r.rating === 'fail' ? 'badge-fail' : r.rating === 'partial' ? 'badge-partial' : 'badge-skip';
+      const badge_text = r.rating === 'pass' ? '✓' : r.rating === 'fail' ? '✗' : r.rating === 'partial' ? '~' : '–';
+      badgeHtml = `<span class="badge ${badge_cls}">${badge_text}</span>`;
+    }
+    list.innerHTML += `<div class="test-item ${cls}" onclick="goTo(${i})">
+      <span class="num">${t.id}</span>
+      <span class="name">${t.name}</span>
+      ${badgeHtml}
+    </div>`;
+  });
+}
+
+// ── Render main content ──
+function renderMain() {
+  const t = TESTS[currentTest];
+  const r = results[t.id] || {};
+
+  const stepsHtml = t.steps.map((s, i) => `<li><span class="step-num">${i+1}</span><span>${s}</span></li>`).join('');
+  const expectsHtml = t.expects.map(e => `<span>${e}</span>`).join('');
+  const questionHtml = t.question ? `
+    <div class="section-card">
+      <div class="section-title">📢 Sisteme sor (kopyalayabilirsin)</div>
+      <div class="ask-box" onclick="copyQuestion(this, '${t.question.replace(/'/g, "\\'")}')">${t.question}</div>
+    </div>` : '';
+
+  const warnHtml = t.warn ? `<div class="warn-box">⚠️ ${t.warn}</div>` : '';
+  const observeHtml = t.manual_observe ? `<div class="warn-box" style="background:#060e0e;border-color:#0d3020;color:#40a060">👁️ Bu test gözlem gerektirir — soru sormak yerine sistemin davranışını izle</div>` : '';
+
+  const timeTag = `<span class="tag tag-time">⏱ ${t.time}</span>`;
+  const typeTag = t.manual_observe ? `<span class="tag tag-manual">👁 Gözlem</span>` : `<span class="tag tag-manual">💬 Soru-Cevap</span>`;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="test-header">
+      <div class="test-num-big">T${t.id}</div>
+      <div>
+        <div class="test-title">${t.name}</div>
+        <div class="test-subtitle">${t.subtitle}</div>
+        <div>${timeTag}${typeTag}</div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">📋 Adımlar</div>
+      <ul class="steps">${stepsHtml}</ul>
+    </div>
+
+    ${questionHtml}
+    ${warnHtml}
+    ${observeHtml}
+
+    <div class="section-card">
+      <div class="section-title">✅ Beklenen yanıtlar / davranışlar</div>
+      <div class="expect-box">
+        <div class="expect-label">Sistem şunları söylemeli/yapmalı</div>
+        <div class="expect-items">${expectsHtml}</div>
+      </div>
+      ${t.fail_if ? `<div class="warn-box" style="margin-top:8px">❌ Başarısız sayılır eğer: ${t.fail_if}</div>` : ''}
+    </div>
+
+    <div class="section-card result-section">
+      <div class="section-title">📝 Sonuç</div>
+      <div class="rating-row">
+        <button class="rating-btn ${r.rating === 'pass' ? 'r-pass' : ''}" onclick="setRating('pass')">✅ Geçti</button>
+        <button class="rating-btn ${r.rating === 'partial' ? 'r-partial' : ''}" onclick="setRating('partial')">⚠️ Kısmi</button>
+        <button class="rating-btn ${r.rating === 'fail' ? 'r-fail' : ''}" onclick="setRating('fail')">❌ Başarısız</button>
+        <button class="rating-btn ${r.rating === 'skip' ? 'r-skip' : ''}" onclick="setRating('skip')">⏭️ Atla</button>
+      </div>
+      <label>Notlar (ne yanıt verdi, ne söyledi):</label>
+      <textarea id="note-input" placeholder="Sistemin verdiği yanıtı veya gözlemini buraya yaz..." onchange="saveNote()">${r.note || ''}</textarea>
+    </div>
+
+    <div class="nav-buttons">
+      ${currentTest > 0 ? `<button class="btn btn-secondary" onclick="goTo(${currentTest - 1})">← Önceki</button>` : ''}
+      ${currentTest < TESTS.length - 1 ? `<button class="btn btn-primary" onclick="goTo(${currentTest + 1})">Sonraki →</button>` : `<button class="btn btn-report" onclick="generateReport()">📊 Raporu İndir</button>`}
+    </div>
+  `;
+
+  // Restore note
+  const noteEl = document.getElementById('note-input');
+  if (noteEl && r.note) noteEl.value = r.note;
+}
+
+function goTo(idx) {
+  saveCurrentNote();
+  currentTest = idx;
+  renderList();
+  renderMain();
+  document.getElementById('main-content').scrollTop = 0;
+}
+
+function setRating(rating) {
+  const t = TESTS[currentTest];
+  if (!results[t.id]) results[t.id] = {};
+  results[t.id].rating = rating;
+  results[t.id].id = t.id;
+  results[t.id].name = t.name;
+  saveCurrentNote();
+  updateSummary();
+  renderList();
+  renderMain();
+}
+
+function saveNote() {
+  saveCurrentNote();
+}
+
+function saveCurrentNote() {
+  const noteEl = document.getElementById('note-input');
+  if (!noteEl) return;
+  const t = TESTS[currentTest];
+  if (!results[t.id]) results[t.id] = {};
+  results[t.id].note = noteEl.value;
+  results[t.id].id = t.id;
+  results[t.id].name = t.name;
+  updateSummary();
+}
+
+function copyQuestion(el, q) {
+  navigator.clipboard.writeText(q).then(() => {
+    el.classList.add('copied');
+    setTimeout(() => el.classList.remove('copied'), 1500);
+  });
+}
+
+function updateSummary() {
+  const done = Object.values(results);
+  const pass = done.filter(r => r.rating === 'pass').length;
+  const partial = done.filter(r => r.rating === 'partial').length;
+  const fail = done.filter(r => r.rating === 'fail').length;
+  const skip = done.filter(r => r.rating === 'skip').length;
+  const total = TESTS.length;
+  const completed = done.filter(r => r.rating).length;
+
+  document.getElementById('m-pass').textContent = pass;
+  document.getElementById('m-partial').textContent = partial;
+  document.getElementById('m-fail').textContent = fail;
+  document.getElementById('m-skip').textContent = skip;
+  document.getElementById('m-done').textContent = `${completed}/${total}`;
+
+  const pct = completed / total;
+  document.getElementById('progress').style.width = (pct * 100) + '%';
+  document.getElementById('progress-label').textContent = `${completed} / ${total}`;
+
+  // Score
+  const scored = done.filter(r => r.rating && r.rating !== 'skip');
+  const scoreVal = scored.length === 0 ? null :
+    (pass * 1.0 + partial * 0.5 + fail * 0.0) / scored.length;
+
+  const scoreEl = document.getElementById('score-big');
+  const circleEl = document.getElementById('score-circle');
+  if (scoreVal !== null) {
+    scoreEl.textContent = Math.round(scoreVal * 100) + '%';
+    const color = scoreVal >= 0.7 ? '#00e87a' : scoreVal >= 0.4 ? '#ffd700' : '#ff6b35';
+    circleEl.style.borderColor = color;
+    scoreEl.style.color = color;
+  } else {
+    scoreEl.textContent = '—';
+  }
+
+  // Recent notes
+  const recentDone = done.filter(r => r.note).slice(-5).reverse();
+  document.getElementById('recent-notes').innerHTML = recentDone.map(r =>
+    `<div style="margin-bottom:8px"><span style="color:var(--blue)">T${r.id}</span> ${r.note.slice(0, 60)}${r.note.length > 60 ? '…' : ''}</div>`
+  ).join('');
+}
+
+function generateReport() {
+  saveCurrentNote();
+  const done = Object.values(results);
+  const pass = done.filter(r => r.rating === 'pass').length;
+  const partial = done.filter(r => r.rating === 'partial').length;
+  const fail = done.filter(r => r.rating === 'fail').length;
+  const skip = done.filter(r => r.rating === 'skip').length;
+  const scored = done.filter(r => r.rating && r.rating !== 'skip');
+  const scoreVal = scored.length === 0 ? 0 :
+    (pass * 1.0 + partial * 0.5) / scored.length;
+
+  const now = new Date().toLocaleString('tr-TR');
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const dur = `${Math.floor(elapsed / 60)}d ${elapsed % 60}s`;
+
+  let html = `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
+<title>J.A.R.V.I.S. V13 — Test Report ${now}</title>
+<style>body{font-family:system-ui;max-width:800px;margin:40px auto;padding:20px;background:#040810;color:#c8d8f0;}
+h1{color:#00c8ff;}h2{color:#7fc8ff;border-bottom:1px solid #0d2040;padding-bottom:8px;}
+.card{background:#070d1c;border:1px solid #0d2040;border-radius:8px;padding:16px;margin:12px 0;}
+.PASS{color:#00e87a;}.PARTIAL{color:#ffd700;}.FAIL{color:#ff4444;}.SKIP{color:#4a7090;}
+table{width:100%;border-collapse:collapse;}th,td{padding:10px;border-bottom:1px solid #0d2040;text-align:left;}
+th{color:#7fc8ff;}pre{background:#060b14;padding:10px;border-radius:4px;font-size:12px;white-space:pre-wrap;}
+.score-big{font-size:48px;font-weight:700;color:${scoreVal>=.7?'#00e87a':scoreVal>=.4?'#ffd700':'#ff4444'};}</style>
+</head><body>
+<h1>🤖 J.A.R.V.I.S. V13 — Manual Test Report</h1>
+<p>Tarih: ${now} | Süre: ${dur}</p>
+<div class="card">
+  <div class="score-big">${Math.round(scoreVal*100)}%</div>
+  <p>Pass: ${pass} | Partial: ${partial} | Fail: ${fail} | Skip: ${skip} | Total: ${scored.length} değerlendirme</p>
+</div>
+<h2>Test Sonuçları</h2>
+<table><tr><th>#</th><th>Test</th><th>Sonuç</th><th>Not</th></tr>`;
+
+  TESTS.forEach(t => {
+    const r = results[t.id] || {};
+    const rating = r.rating || 'pending';
+    const ratingUp = rating.toUpperCase();
+    html += `<tr><td>${t.id}</td><td>${t.name}</td><td class="${ratingUp}">${ratingUp}</td><td><pre>${r.note || '—'}</pre></td></tr>`;
+  });
+
+  html += `</table></body></html>`;
+
+  const blob = new Blob([html], {type: 'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `jarvis_v13_manual_report_${Date.now()}.html`;
+  a.click();
+}
+
+// Init
+renderList();
+renderMain();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+python-dotenv==1.0.1
+groq>=1.0.0
+SpeechRecognition==3.10.3
+pyaudio==0.2.14
+gTTS==2.5.4
+pygame==2.6.1
+psutil
+PyGetWindow
+PyAutoGUI
+chromadb
+sentence-transformers
+playwright>=1.40.0
+pywinauto>=0.6.8
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

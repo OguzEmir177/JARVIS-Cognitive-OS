@@ -1,0 +1,19 @@
+# API Keys and Secrets
+.env
+
+# Personal Data
+contacts.json
+
+# Databases and Memory
+memory_db/
+jarvis_memory_db/
+*.db
+*.sqlite3
+
+# Logs and Temp Files
+logs/
+*.log
+WHATSAPP_HATA.txt
+__pycache__/
+*.pyc
+.jarvis_autostart
