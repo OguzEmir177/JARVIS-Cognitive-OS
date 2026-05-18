@@ -18,6 +18,9 @@ from tools.base_tool import ToolResult
 
 logger = logging.getLogger("JARVIS.PlanExecutor")
 
+# [V15.5] Kod hata düzeltme döngüsü için maksimum deneme sayısı
+MAX_CODE_FIX_ATTEMPTS = 3
+
 
 class PlanExecutor:
     """
@@ -160,6 +163,12 @@ class PlanExecutor:
             logger.error(f"[execute_node] Tool execute hatası: {e}", exc_info=True)
             return False
 
+        # ── [V15.5] PYTHON_EXEC SELF-HEALING DÖNGÜSÜ ──────────────────────
+        # Eğer Python kodu hata verdiyse, hatayı LLM'e gönderip kodu düzelttir.
+        if not result.success and node.protocol_tag.upper() == "PYTHON_EXEC":
+            result = await self._python_self_heal(node, result, context, task_state)
+        # ─────────────────────────────────────────────────────────────────────
+
         # 4. State Update
         task_state.add_tool_call(node.protocol_tag, str(node.argument), result.to_dict())
         
@@ -178,6 +187,18 @@ class PlanExecutor:
 
     async def execute_single(self, task_state, response: str) -> None:
         """Yanıttaki tüm protokol etiketlerini sırayla yürütür."""
+        # [PROTOL SIZINTISI KORUMASI - ULTRA GÜVENLİ]
+        # Yanıt sadece ve sadece resmi J.A.R.V.I.S. protokol başlangıçları ([PROTOCOL: veya [PLAN) ile başlıyorsa çalıştırılır.
+        # Aksi takdirde bu kesinlikle konuşmadır. İçindeki tüm sızıntı etiketleri temizlenip doğrudan seslendirilir.
+        cleaned_response = response.strip()
+        if not (cleaned_response.startswith("[PROTOCOL:") or cleaned_response.startswith("[PLAN") or cleaned_response.startswith("[/PLAN")):
+            logger.warning(f"[PlanExecutor] Protokol sızıntısı engellendi. Konuşma olarak yürütülüyor.")
+            import re as _re
+            clean_speech = _re.sub(r'\[PROTOCOL:.*?\]', '', response).strip()
+            await self.io_bridge.speak(clean_speech)
+            self.state_manager.complete_task(task_state.id)
+            return
+
         matches = list(re.finditer(r'\[PROTOCOL:\s*(\w+)\](.*?)(?=\[PROTOCOL:|$)', response, re.DOTALL))
         if not matches:
             self.state_manager.complete_task(task_state.id)
@@ -205,6 +226,7 @@ class PlanExecutor:
             "CONFIRM_BROWSER_KILL": self._handle_browser_kill_confirm,
             "RUN_STRESS_TEST":      self._handle_stress_test,
             "CLEAR_LAST_HISTORY":   self._handle_clear_history,
+            "FILE_WRITE_INTERPRET": self._handle_file_write_interpret,
         }
         handler = handlers.get(result.next_action)
         if handler:
@@ -227,17 +249,43 @@ class PlanExecutor:
                 self.last_whatsapp_time = time.time()
                 self.last_contact = m_name
 
+    @staticmethod
+    def _strip_speak_tag(text: str) -> str:
+        """
+        Brain bazen '[PROTOCOL: SPEAK] mesaj' formatında yanıt döner.
+        Bu etiket io_bridge.speak()'e ham geçilirse log'a sızar.
+        Yalnızca temiz mesaj metnini döndürür.
+        """
+        import re as _re
+        # [PROTOCOL: SPEAK] veya [PROTOCOL:SPEAK] etiketini baştan soy
+        cleaned = _re.sub(r'^\s*\[PROTOCOL\s*:\s*SPEAK\]\s*', '', text, flags=_re.IGNORECASE)
+        return cleaned.strip()
+
     async def _handle_vision_interpret(self, result) -> None:
         raw_analysis = result.data.get("raw_analysis", "")
         if not raw_analysis: return
         final = await self.brain.think(f"Ekranda ne olduğunu Efendine açıkla: '{raw_analysis}'")
-        await self.io_bridge.speak(final)
+        await self.io_bridge.speak(self._strip_speak_tag(final))
 
     async def _handle_python_interpret(self, result) -> None:
         output = result.data.get("output", "")
         if not output: return
-        final = await self.brain.think(f"Yazdığın Python kodunun çıktısı şu: '{output}'. Bu sonucu Efendine doğal, kısa ve saygılı bir dille söyle. (Örn: 'Efendim, hesaplamayı tamamladım, sonuç şu...' gibi)")
-        await self.io_bridge.speak(final)
+        final = await self.brain.think(
+            f"Yazdığın Python kodunun çıktısı şu: '{output}'. "
+            f"Bu sonucu Efendine doğal, kısa ve saygılı bir dille söyle. "
+            f"(Örn: 'Efendim, hesaplamayı tamamladım, sonuç şu...' gibi)"
+        )
+        await self.io_bridge.speak(self._strip_speak_tag(final))
+
+    async def _handle_file_write_interpret(self, result) -> None:
+        filename = result.data.get("filename", "")
+        prompt = (
+            f"Az önce '{filename}' dosyasına yazma işlemi gerçekleştirdin. "
+            f"Efendine çok kısa (1-2 cümle) bir dille 'ne yazdığını' ve 'bunu neden yaptığını' söyle. "
+            f"Örn: 'Efendim, hesap makinesi fonksiyonunu düzelttim çünkü toplama hatası vardı.'"
+        )
+        final = await self.brain.think(prompt, bypass_history=True)
+        await self.io_bridge.speak(self._strip_speak_tag(final))
 
     async def _handle_browser_kill_confirm(self, result) -> None:
         browser = result.data.get("browser", "")
@@ -253,6 +301,114 @@ class PlanExecutor:
     async def _handle_clear_history(self, result) -> None:
         if hasattr(self.brain, "chat_history"):
             self.brain.chat_history = self.brain.chat_history[:-1]
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #  [V15.5] PYTHON SELF-HEALING
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async def _python_self_heal(
+        self,
+        node: "PlanNode",
+        failed_result: "ToolResult",
+        context: dict,
+        task_state,
+    ) -> "ToolResult":
+        """
+        [V15.5] Python Kod Öz-İyileştirme Döngüsü
+        ─────────────────────────────────────────────
+        Bir PYTHON_EXEC adımı başarısız olduğunda:
+        1. Hatalı kodu + hata mesajını alır.
+        2. LLM'e "Kodu düzelt" prompt'u gönderir.
+        3. Düzeltilmiş kodu aynı tool üzerinden tekrar çalıştırır.
+        4. Başarılı olana veya MAX_CODE_FIX_ATTEMPTS'a ulaşana kadar döner.
+        """
+        current_result = failed_result
+        broken_code = str(node.argument)  # İlk kod
+
+        for attempt in range(1, MAX_CODE_FIX_ATTEMPTS + 1):
+            error_detail = current_result.message or str(current_result.error)
+            logger.warning(
+                f"[PythonSelfHeal] Deneme {attempt}/{MAX_CODE_FIX_ATTEMPTS} — "
+                f"hata: {error_detail[:120]}"
+            )
+
+            # Kullanıcıya bildir
+            await self.io_bridge.speak(
+                f"Efendim, kodumda bir hata var. Düzeltiyorum, deneme {attempt}."
+            )
+
+            # LLM'e düzeltme talebi gönder (bypass_history=True → bağlamı kirletme)
+            fix_prompt = (
+                f"[PYTHON KOD DÜZELTME GÖREVİ]\n"
+                f"Aşağıdaki Python kodu çalıştırıldı ve hata verdi.\n"
+                f"Hatayı düzelt ve SADECE düzeltilmiş, çalışan Python kodunu ver.\n"
+                f"KURALLAR:\n"
+                f"  - Hiç açıklama metni yazma, sadece saf Python kodu yaz.\n"
+                f"  - Kod içinde input() KULLANMA.\n"
+                f"  - Sonucu mutlaka print() ile yaz.\n"
+                f"  - Markdown (```) veya protokol etiketi KULLANMA.\n\n"
+                f"HATALI KOD:\n{broken_code}\n\n"
+                f"HATA MESAJI:\n{error_detail}\n\n"
+                f"Düzeltilmiş kod:"
+            )
+
+            try:
+                fixed_response = await self.brain.think(fix_prompt, bypass_history=True)
+            except Exception as brain_err:
+                logger.error(f"[PythonSelfHeal] Brain çağrısı başarısız: {brain_err}")
+                break
+
+            # LLM yanıtından ham kodu çıkar (protokol etiketleri veya markdown varsa sil)
+            import re as _re
+            fixed_code = fixed_response
+            # [PROTOCOL: PYTHON_EXEC] veya [PROTOCOL: SPEAK] gibi etiket varsa içeriği al
+            protocol_match = _re.search(
+                r'\[PROTOCOL:\s*PYTHON_EXEC\]\s*(.+)',
+                fixed_code, _re.DOTALL | _re.IGNORECASE
+            )
+            if protocol_match:
+                fixed_code = protocol_match.group(1).strip()
+            # Markdown kod bloğu varsa temizle
+            fixed_code = fixed_code.replace("```python", "").replace("```", "").strip()
+            # Kalan protokol etiketlerini temizle
+            fixed_code = _re.sub(r'\[/?[A-Z_ :]+PYTHON_EXEC[^\]]*\]', '', fixed_code)
+            fixed_code = _re.sub(r'\[/?PROTOCOL[^\]]*\]', '', fixed_code)
+            fixed_code = "\n".join(line for line in fixed_code.splitlines() if line.strip()).strip()
+
+            if not fixed_code:
+                logger.warning("[PythonSelfHeal] LLM boş kod döndürdü, duruyorum.")
+                break
+
+            logger.info(f"[PythonSelfHeal] LLM'den gelen düzeltilmiş kod:\n{fixed_code[:300]}")
+
+            # Düzeltilmiş kodu çalıştır
+            node.argument = fixed_code
+            broken_code = fixed_code  # Bir sonraki iterasyon için güncelle
+
+            try:
+                new_result = await self.executor.execute_tool(
+                    "PYTHON_EXEC",
+                    fixed_code,
+                    engine_context=context
+                )
+            except Exception as exec_err:
+                logger.error(f"[PythonSelfHeal] Düzeltilmiş kod execute hatası: {exec_err}")
+                break
+
+            if new_result.success:
+                logger.info(f"[PythonSelfHeal] Deneme {attempt}'de başarıyla düzeltildi.")
+                await self.io_bridge.speak("Kodu düzelttim ve başarıyla çalıştırdım Efendim.")
+                return new_result
+            else:
+                current_result = new_result
+
+        # Tüm denemeler tükendi
+        logger.error("[PythonSelfHeal] Tüm düzeltme denemeleri başarısız.")
+        await self.io_bridge.speak(
+            "Efendim, birkaç denemeye rağmen kodu düzeltemedim. "
+            "Lütfen görevi daha ayrıntılı tarif eder misiniz?"
+        )
+        return current_result
 
     async def replan(self, task_state, old_plan, failed_node, error_msg: str) -> Optional[ExecutionPlan]:
         replan_prompt = (

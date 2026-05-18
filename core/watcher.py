@@ -117,7 +117,10 @@ class ProactiveWatcher:
         # 3. Ekran Analizi (Lokal ve Ücretsiz Pencere Takibi)
         logger.info("[WATCHER] Gözlem yapılıyor (Lokal Pencere Analizi)...")
         # API kotasını bitirmemek için ekran görüntüsü almak yerine aktif pencereyi okuyoruz
-        situation = self.engine.world_state.get_situation_assessment()
+        situation = {"active_app": "Unknown", "active_window": "Unknown"}
+        if hasattr(self.engine, 'cognitive_core') and self.engine.cognitive_core:
+            situation = self.engine.cognitive_core.world_state.get_situation_assessment()
+            
         active_app = situation.get("active_app", "Bilinmiyor")
         active_win = situation.get("active_window", "Bilinmiyor")
         

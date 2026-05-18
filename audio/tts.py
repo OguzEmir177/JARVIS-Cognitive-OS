@@ -6,6 +6,9 @@ import tempfile
 import edge_tts
 import logging
 
+# [V15.5] Çeviri önbelleği — aynı cümle bir kez çevrilir, sonraki çağrılarda anında döner
+_TRANSLATION_CACHE: dict = {}
+
 class TextToSpeech:
     def __init__(self):
         # Sesi oynatmak için pygame başlatıyoruz
@@ -33,20 +36,57 @@ class TextToSpeech:
             
             # Edge-TTS Asenkron Çalıştırma ve Çeviri
             async def generate_speech():
+                global _TRANSLATION_CACHE
                 speech_text = text
-                # Türkçeyi İngilizceye çevir (Ryan'ın okuyabilmesi için)
-                try:
-                    from googletrans import Translator
-                    translator = Translator()
-                    # Googletrans 4.x asenkron veya senkron olabilir, garantilemek için try/await
-                    tr_result = translator.translate(text, src='tr', dest='en')
-                    if hasattr(tr_result, "__await__"):
-                        tr_result = await tr_result
-                    if tr_result and tr_result.text:
-                        speech_text = tr_result.text
-                except Exception as e:
-                    logging.warning(f"TTS Çeviri hatası: {e}")
-                    pass # Çeviri çökerse orijinal metinle devam et
+
+                # ── Çeviri Önbellği + 429 Retry ──────────────────────────
+                if text in _TRANSLATION_CACHE:
+                    speech_text = _TRANSLATION_CACHE[text]
+                else:
+                    import urllib.request
+                    import urllib.parse
+                    import urllib.error
+                    import json as _json
+                    import time as _time
+
+                    def _do_translate() -> str:
+                        encoded = urllib.parse.quote(text)
+                        url = (
+                            "https://translate.googleapis.com/translate_a/single"
+                            f"?client=gtx&sl=tr&tl=en&dt=t&q={encoded}"
+                        )
+                        req = urllib.request.Request(
+                            url, headers={"User-Agent": "Mozilla/5.0"}
+                        )
+                        with urllib.request.urlopen(req, timeout=5) as resp:
+                            raw = resp.read().decode("utf-8")
+                        data = _json.loads(raw)
+                        return "".join(part[0] for part in data[0] if part[0])
+
+                    try:
+                        translated = _do_translate()
+                        if translated:
+                            _TRANSLATION_CACHE[text] = translated
+                            speech_text = translated
+                    except urllib.error.HTTPError as e:
+                        if e.code == 429:
+                            # Rate limit — 3 saniye bekle ve 2 kez dene
+                            for retry_count in range(2):
+                                logging.warning(f"TTS: 429 Rate Limit (Deneme {retry_count+1}), 3s bekleniyor...")
+                                await asyncio.sleep(3)
+                                try:
+                                    translated = _do_translate()
+                                    if translated:
+                                        _TRANSLATION_CACHE[text] = translated
+                                        speech_text = translated
+                                        break
+                                except Exception:
+                                    continue
+                        else:
+                            logging.warning(f"TTS Çeviri HTTP hatası ({e.code}): {e} — orijinal metin kullanılıyor")
+                    except Exception as e:
+                        logging.warning(f"TTS Çeviri hatası: {e} — orijinal metin kullanılıyor")
+                # ─────────────────────────────────────────────────────────
                     
                 retries = 3
                 for attempt in range(retries):

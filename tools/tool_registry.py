@@ -69,7 +69,8 @@ SMART_ALIASES: Dict[str, str] = {
     "HATIRLATICI": "SCHEDULE",
     "REMIND": "SCHEDULE",
     "FILE_LIST": "FILE_READ",
-    "FILE_OPEN": "FILE_READ",
+    "FILE_OPEN": "FILE_OPEN",
+    "OPEN_FILE": "FILE_OPEN",
     "FILE_CREATE": "FILE_CREATE",
     "CREATE_FILE": "FILE_CREATE",
     "FILE_APPEND": "FILE_WRITE",
@@ -372,7 +373,7 @@ def create_default_registry() -> ToolRegistry:
 
     # [V9.0] Filesystem tools — AYRI try bloğu
     try:
-        from tools.file_tool import FileReadTool, FileSummarizeTool, FileWriteTool, FileLatestTool, FileCreateTool, FileDeleteTool, FolderOpenTool
+        from tools.file_tool import FileReadTool, FileSummarizeTool, FileWriteTool, FileLatestTool, FileCreateTool, FileDeleteTool, FolderOpenTool, FileOpenTool
         from tools.analiz_pro_tool import AnalizProTool
         from tools.python_tool import PythonExecutionTool
         registry.register(FileReadTool())
@@ -384,6 +385,7 @@ def create_default_registry() -> ToolRegistry:
         registry.register(FileCreateTool())
         registry.register(FileDeleteTool())
         registry.register(FolderOpenTool())
+        registry.register(FileOpenTool())
         logger.info("Filesystem tools kaydedildi")
     except ImportError as e:
         logger.warning(f"Filesystem tools yüklenemedi: {e}")

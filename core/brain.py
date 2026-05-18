@@ -115,15 +115,31 @@ class GroqBrain:
             "Örnek: 'Doların son 3 gününü grafik yap' -> [PROTOCOL: CHART_SHOW] {\"labels\":[\"Pzt\",\"Sal\",\"Çar\"],\"values\":[32,32.5,33],\"ylabel\":\"TL\"}|Dolar Kuru|line\n"
             "27. GOOGLE TRENDS KURALI: Kullanıcı özellikle bir şeyin 'ne kadar trend', 'popülaritesi ne durumda' veya 'Google Trends'te araştır' dediğinde SADECE [PROTOCOL: GOOGLE_TRENDS] <sorgu> kullan. Örnek: 'bed wars ne kadar trend' -> [PROTOCOL: GOOGLE_TRENDS] bed wars.\n"
             "28. [ÖZ FARKINDALIK KURALI]: 'Neler yapabilirsin', 'Yeteneklerin neler', 'Sen kimsin' gibi senin ÖZ varlığını ve özelliklerini sorgulayan komutlarda KESİNLİKLE hiçbir arama (GOOGLE_SEARCH, WEB_SEARCH vs.) kullanma! Sadece aşağıda listelenen SADAKAT VE YETENEK HARİTASI'nı okuyup [PROTOCOL: SPEAK] ile kendi kelimelerinle özetle.\n"
-            "29. [HESAPLAMA VE KOD KURALI]: Matematik ve hesaplama görevlerinde İKİ farklı aracın var:\n"
+            "29. [HESAPLAMA KURALI]: Matematik ve hesaplama görevlerinde İKİ farklı aracın var:\n"
             "A) Eğer internetten veri çekip (WEB_SEARCH) bu veriler üzerinden hesaplama/mantık yürüteceksen KESİNLİKLE [PROTOCOL: LLM_EVAL] <soru> kullan. PYTHON_EXEC kullanma! Örnek:\n"
             "[PLAN]\n"
             "1. WEB_SEARCH Messi güncel gol sayısı\n"
             "2. WEB_SEARCH Ronaldo güncel yaşı\n"
             "3. LLM_EVAL Messi'nin golü ile Ronaldo'nun yaşını topla\n"
             "[/PLAN]\n"
-            "B) Eğer dış veriye ihtiyaç yoksa (örn: 1'den 100'e asal sayılar), doğrudan tek satır [PROTOCOL: PYTHON_EXEC] kullan.\n"
-            "30. [ZAMAN FARKINDALIĞI KURALI]: WEB_SEARCH kullanırken, EĞER kullanıcı 'güncel', 'şu an', 'bugün' gibi kelimeler kullanıyorsa sorguya '2026' ekle. EĞER kullanıcı zaten geçmiş bir yıl (örn: 2011, 2015) belirtmişse, sorguya ASLA 2026 ekleme, sadece o geçmiş yılı kullan (Örn: '2011 dolar kuru').\n"
+            "B) Eğer kullanıcı senden anlık bir HESAPLAMA istiyorsa (\"5+3 kaç eder\", \"asal sayıları bul\") → doğrudan [PROTOCOL: PYTHON_EXEC] kullan:\n"
+            "  Örnek: '15 üstüne 27 ekle' → [PROTOCOL: PYTHON_EXEC] print(15+27)\n"
+            "  Örnek: 'Fibonacci serisi' → [PROTOCOL: PYTHON_EXEC] a,b=0,1\\nfor _ in range(10): print(a,end=' '); a,b=b,a+b\n"
+            "[PYTHON_EXEC İÇİN ÖLÜMCÜL KURALLAR]:\n"
+            "  - KESİNLİKLE `input()` KULLANMA! Bu ortamda kullanıcıdan girdi alınamaz.\n"
+            "  - Her zaman `print()` ile sonucu ekrana yaz.\n"
+            "30. [ÖLÜMCÜL KURAL - PROGRAM/UYGULAMA YAZMA]: Eğer kullanıcı senden bir UYGULAMA, PROGRAM veya ARAYÜZ (GUI) OLUŞTURMANI istiyorsa (\"hesap makinesi yap\", \"program yaz\", \"araç oluştur\", \"oyun yap\") →\n"
+            "   Bunu PYTHON_EXEC ile YAPAMAZSIN! PYTHON_EXEC sadece gizli matematik hesaplamaları içindir.\n"
+            "   Program yaratmak için KESİNLİKLE [PROTOCOL: FILE_WRITE] kullanıp Masaüstüne çalışan bir Python dosyası yazmalısın. Örnek:\n"
+            "   Kullanıcı: 'Hesap makinesi yap'\n"
+            "   Senin Yanıtın: [PROTOCOL: FILE_WRITE] C:/Users/proog/OneDrive/Masaüstü/hesap_makinesi.py|import tkinter as tk\\nroot=tk.Tk()\\nroot.title('Hesap Makinesi')\\n#... (arayüz kodları) ...\\nroot.mainloop()\n"
+            "31. [ZAMAN FARKINDALIĞI KURALI]: WEB_SEARCH kullanırken, EĞER kullanıcı 'güncel', 'şu an', 'bugün' gibi kelimeler kullanıyorsa sorguya '2026' ekle. EĞER kullanıcı zaten geçmiş bir yıl (örn: 2011, 2015) belirtmişse, sorguya ASLA 2026 ekleme, sadece o geçmiş yılı kullan (Örn: '2011 dolar kuru').\n"
+            "32. [DOSYA DÜZENLEME KURALI]: Kullanıcı var olan bir dosyayı değiştirmeni, düzenlemeni veya fixlemeni istediğinde ASLA kodu sadece sohbette gösterme!\n"
+            "   Doğrudan [PROTOCOL: FILE_WRITE] dosya_yolu|yeni_tam_kod şeklinde dosyayı güncelle. Kodu chat'e yazma, dosyaya yaz!\n"
+            "   Örnek: 'transkripter.py sadece URL ile çalışsın' → [PROTOCOL: FILE_WRITE] C:/Users/proog/OneDrive/Masaüstü/transkripter.py|import tkinter...\n"
+            "33. [PYTHON KODLAMA VE TRANSKRİPT KURALI]: Python arayüz veya scriptleri (GUI) yazarken DAİMA şu iki kurala uy:\n"
+            "   A) 'pytube' modülü BOZUKTUR, KESİNLİKLE kullanma! YouTube transkript veya videoları için her zaman 'youtube-transcript-api' kullan.\n"
+            "   B) Programların çift tıklanınca aniden kapanmasını önlemek için tüm kodları try-except bloğu içine al, hata oluşursa 'error_log.txt' adlı dosyaya yaz ve kullanıcıya tkinter messagebox ile bilgi ver.\n"
         )
         
         # ── BÖLÜM 2: DİNAMİK ARAÇ LİSTESİ ──
@@ -273,23 +289,40 @@ class GroqBrain:
         from groq import RateLimitError, APIConnectionError, APIError
         import groq
 
-        for current_model in self.config.brain_models:
+        for i, current_model in enumerate(self.config.brain_models):
             api_kwargs["model"] = current_model
+            
+            # [V15.5] Küçük modellere düşerken history'yi agresif kırp
+            # 8b modelin Groq free tier TPM limiti 6000 — sığması için
+            if "8b" in current_model:
+                # Sadece system prompt + son 2 mesaj + yeni user input bırak
+                trimmed = [messages[0]]  # system prompt
+                if len(messages) > 3:
+                    trimmed += messages[-2:]  # son user+assistant çifti
+                trimmed.append(messages[-1])  # yeni user input (zaten son eleman)
+                # Duplicate kontrolü
+                seen = set()
+                unique = []
+                for m in trimmed:
+                    key = m.get("content", "")[:50]
+                    if key not in seen:
+                        seen.add(key)
+                        unique.append(m)
+                api_kwargs["messages"] = unique
+                api_kwargs["max_tokens"] = min(api_kwargs.get("max_tokens", 2048), 1024)
+                print(f"[BEYİN LOGU] 8b fallback: history {len(messages)} → {len(unique)} msg, max_tokens=1024")
+            
             try:
-                # logger.debug(f"[Brain] Model deneniyor: {current_model}")
                 response = await self.client.chat.completions.create(**api_kwargs)
                 choice = response.choices[0]
                 break # Başarılı olduysa döngüden çık
             except RateLimitError as e:
-                # print(f"[BEYİN LOGU] {current_model} modelinde kota doldu (429). Sonraki modele geçiliyor...")
                 last_error = e
                 continue
             except (APIConnectionError, APIError) as e:
-                # print(f"[BEYİN LOGU] {current_model} modelinde bağlantı/API hatası. Sonraki modele geçiliyor...")
                 last_error = e
                 continue
             except Exception as e:
-                # Diğer bilinmeyen hatalarda doğrudan fırlat
                 raise e
 
         # Hiçbir model başarılı olamadıysa
@@ -337,8 +370,9 @@ class GroqBrain:
                 self.chat_history.append({"role": "assistant", "content": reply})
                 
                 # [V10.2 FIX] Geçmişi sınırla (Payload Too Large Hatasını Önler)
-                if len(self.chat_history) > 11:
-                    self.chat_history = [self.chat_history[0]] + self.chat_history[-10:]
+                # [V15.5] Token tasarrufu — Groq free tier TPM limiti için agresif kırpma
+                if len(self.chat_history) > 7:
+                    self.chat_history = [self.chat_history[0]] + self.chat_history[-6:]
             
             return reply
 

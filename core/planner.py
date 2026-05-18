@@ -53,10 +53,25 @@ def parse_plan(response: str) -> Optional[ExecutionPlan]:
     body = match.group(1).strip()
     if not body: return None
     steps = []; num = 0
+    
+    # Bilinen protokol etiketleri — bu listede olmayan tag'ler adım olarak kabul EDİLMEZ
+    KNOWN_TAGS = {
+        "SPEAK", "FILE_WRITE", "FILE_READ", "FILE_CREATE", "FILE_DELETE", "FILE_LATEST",
+        "APP_OPEN", "APP_KILL", "FOLDER_OPEN", "WEB_SEARCH", "WEB_OPEN",
+        "GOOGLE_SEARCH", "YT_SEARCH", "YT_PLAY", "WHATSAPP_MESSAGE",
+        "PYTHON_EXEC", "VISION", "REMEMBER", "CHART_SHOW", "MAP_SHOW",
+        "GOOGLE_TRENDS", "SYSTEM_SHUTDOWN", "SYSTEM_POWER", "YOUTUBE_STRATEGY",
+        "ANALIZ_PRO", "LLM_EVAL",
+        # Alias'lar
+        "SEARCH", "GOOGLE", "YOUTUBE", "YOUTUBE_SEARCH", "YOUTUBE_PLAY",
+        "OPEN", "KILL", "WHATSAPP", "WA_MESSAGE", "SHUTDOWN", "POWER",
+        "REMEMBER_THIS", "SAVE_MEMORY", "MAP", "CHART", "GRAPH",
+    }
+
     for line in body.split('\n'):
         line = line.strip()
         if not line: continue
-        line = re.sub(r'^[\d]+[\.)\-:]\s*', '', line).strip()
+        line = re.sub(r'^[\d]+[\.\)\-:]\s*', '', line).strip()
         if not line: continue
         proto = re.match(r'\[PROTOCOL:\s*(\w+)\]\s*(.*)', line, re.IGNORECASE)
         if proto:
@@ -65,6 +80,18 @@ def parse_plan(response: str) -> Optional[ExecutionPlan]:
             parts = line.split(None, 1)
             if not parts: continue
             tag = parts[0]; arg = parts[1] if len(parts) > 1 else ""
+        
+        tag_upper = tag.strip().upper()
+        tag_upper = ALIAS_MAP.get(tag_upper, tag_upper)
+        
+        # Bilinen bir tag değilse → önceki adıma argüman olarak ekle (kod satırı vs.)
+        if tag_upper not in KNOWN_TAGS:
+            if steps:
+                # Önceki adımın argümanına satırı ekle (FILE_WRITE çok satırlı kod durumu)
+                steps[-1].argument += "\n" + line
+            # Bilinmeyen tag'i adım olarak EKLEME
+            continue
+        
         tag, arg = _apply_filters(tag, arg)
         num += 1; steps.append(PlanNode(step_number=num, protocol_tag=tag, argument=arg))
     if not steps: return None

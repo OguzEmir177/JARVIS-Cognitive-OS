@@ -421,7 +421,7 @@ class AutonomousToolRouter:
         if any(kw in text for kw in write_keywords):
             return True
         # "X yaz" kalıbı — context dosya içeriyorsa
-        if "yaz" in text and (
+        if re.search(r'\byaz\b', text) and (
             "dosya" in text or
             re.search(r'\.\w{2,4}', text) is not None or
             "içine" in text

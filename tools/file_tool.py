@@ -378,7 +378,7 @@ class FileWriteTool(BaseTool):
             loop = asyncio.get_running_loop()
             def _write_and_read():
                 path.parent.mkdir(parents=True, exist_ok=True)
-                with path.open("a", encoding="utf-8") as f:
+                with path.open("w", encoding="utf-8") as f:
                     f.write(content + "\n")
                 return path.read_text(encoding="utf-8")
             
@@ -396,7 +396,8 @@ class FileWriteTool(BaseTool):
             return ToolResult(
                 success=True, verified=True,
                 message=f"{path.name} dosyasına yazıldı → {path}",
-                speak=f"{path.name} dosyasına başarıyla yazıldı Efendim."
+                next_action="FILE_WRITE_INTERPRET",
+                data={"filename": path.name}
             )
         except PermissionError:
             return ToolResult(
@@ -538,6 +539,49 @@ class FolderOpenTool(BaseTool):
                 success=False, verified=False,
                 error=str(e),
                 message=f"Klasör açılamadı: {e}"
+            )
+
+
+class FileOpenTool(BaseTool):
+    name = "Dosya Açma"
+    protocol_tag = "FILE_OPEN"
+    domain = "filesystem"
+    parameters = {
+        "file_path": {"type": "string", "description": "Açılacak dosyanın yolu veya adı (ör: hesap_makinesi.py)"}
+    }
+
+    async def execute(self, params: dict, context: dict) -> ToolResult:
+        raw = (params.get("file_path") or params.get("query") or "").strip()
+        path, dbg = _resolve_path(raw, context)
+        logger.info(f"FILE_OPEN resolved: {raw!r} → {path} ({dbg})")
+
+        if not path.exists():
+            return ToolResult(
+                success=False, verified=False,
+                error="NotFound",
+                message=f"Dosya bulunamadı: {path}"
+            )
+
+        if not path.is_file():
+            return ToolResult(
+                success=False, verified=False,
+                error="NotAFile",
+                message=f"Bu bir dosya değil: {path}. Klasörleri açmak için FOLDER_OPEN kullanın."
+            )
+
+        try:
+            # os.startfile opens the file with the default OS application (.py with editor, .txt with notepad, etc.)
+            os.startfile(str(path))
+            return ToolResult(
+                success=True, verified=True,
+                message=f"{path.name} dosyası varsayılan uygulama ile açıldı.",
+                speak=f"{path.name} dosyasını açıyorum Efendim."
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False, verified=False,
+                error=str(e),
+                message=f"Dosya açılamadı: {e}"
             )
 
 

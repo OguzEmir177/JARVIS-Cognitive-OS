@@ -172,20 +172,7 @@ class ExecutionEngine:
         self.memory.pattern_extractor = self.pattern_extractor
         
         # [V15.4] Otonom Çöp Temizleyici (Auto-Cleanup)
-        if self.memory and self.memory.collection:
-            try:
-                def _clean_junk():
-                    results = self.memory.collection.get(include=["documents"])
-                    bad_ids = [res_id for i, res_id in enumerate(results.get("ids", [])) 
-                               if results["documents"][i] and "[ne yaptim]" in results["documents"][i].lower()]
-                    if bad_ids:
-                        self.memory.collection.delete(ids=bad_ids)
-                        logger.info(f"Otonom Temizlik: ChromaDB'den {len(bad_ids)} adet çöp log silindi.")
-                
-                # Event loop'u bloklamadan arka planda temizle
-                asyncio.get_running_loop().run_in_executor(None, _clean_junk)
-            except Exception as e:
-                logger.debug(f"Auto-cleanup hatası: {e}")
+        self._run_autonomous_cleanup()
 
         # [V14.0] Adaptive Learner — Otonom Öğrenme Motoru
         self.adaptive_learner = AdaptiveLearner()
@@ -330,8 +317,10 @@ class ExecutionEngine:
             # B. Öğrenilmiş Strateji Kontrolü
             # [V15.0] FILE_* ve FOLDER_* operasyonları için learned strategy KULLANMA
             # — her dosya komutu farklı bir dosyayı hedefler, cached arg geçersiz olur
+            # [V15.5] PYTHON_EXEC eklendi — her kod yazma görevi benzersizdir,
+            # cached strateji eski/yanlış kodu tekrar çalıştırır
             FILE_DYNAMIC_TAGS = {"FILE_CREATE", "FILE_WRITE", "FILE_READ", "FILE_DELETE",
-                                  "FOLDER_OPEN", "FILE_LATEST"}
+                                  "FOLDER_OPEN", "FILE_LATEST", "PYTHON_EXEC"}
             learned_strategy = None
             if hasattr(self, 'adaptive_learner') and not repeat_task_id:
                 # Önce keyword router'ı çalıştır — eğer FILE_* ise learned strategy atla
@@ -343,6 +332,10 @@ class ExecutionEngine:
                         learned_strategy = self.adaptive_learner.find_strategy(user_input)
                 except Exception:
                     learned_strategy = self.adaptive_learner.find_strategy(user_input)
+                
+                if learned_strategy and learned_strategy.tool_chain and learned_strategy.tool_chain[0].upper() in FILE_DYNAMIC_TAGS:
+                    logger.info(f"[V15.0] Öğrenilmiş strateji {learned_strategy.tool_chain[0]} dinamik olduğu için atlandı.")
+                    learned_strategy = None
 
             # ════════════════════════════════════════════════════════
             #  PHASE 1: COGNITIVE ENRICHMENT (Pre-Execution)
@@ -553,6 +546,8 @@ class ExecutionEngine:
 
             await self.io_bridge.speak("Efendim, bir sorun oluştu.")
         finally:
+            # İşlem bittikten sonra hafızadaki çöp izlerini temizle
+            self._run_autonomous_cleanup()
             self.io_bridge.update_gui("DİNLİYOR")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -682,6 +677,35 @@ class ExecutionEngine:
             "Sistem kısıtlı modda (bağlantısız) başlatılıyor."
         )
         return b
+
+    def _run_autonomous_cleanup(self) -> None:
+        """[V15.5] Otonom Çöp Temizleyici - Tüm kirli etiketleri temizler."""
+        if self.memory and self.memory.collection:
+            try:
+                def _clean_junk():
+                    KIRLI_TAGLAR = [
+                        "[ne yaptim]", "[ne işe yaradi]",
+                        "[ne başarisiz]", "[sonraki seferde]"
+                    ]
+                    results = self.memory.collection.get(include=["documents"])
+                    docs = results.get("documents", [])
+                    ids = results.get("ids", [])
+                    bad_ids = []
+                    
+                    for i, doc in enumerate(docs):
+                        if doc:
+                            doc_lower = doc.lower()
+                            if any(tag in doc_lower for tag in KIRLI_TAGLAR):
+                                bad_ids.append(ids[i])
+                                
+                    if bad_ids:
+                        self.memory.collection.delete(ids=bad_ids)
+                        logger.info(f"Otonom Temizlik: ChromaDB'den {len(bad_ids)} adet çöp log silindi.")
+                
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(None, _clean_junk)
+            except Exception as e:
+                logger.debug(f"Auto-cleanup hatası: {e}")
 
     def _setup_logging(self) -> None:
         pass

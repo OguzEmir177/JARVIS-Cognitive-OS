@@ -63,9 +63,9 @@ class EngineConfig:
 
     # ── LLM Model Fallback Chain ──
     brain_models: list = field(default_factory=lambda: [
-        "llama-3.1-8b-instant",    # Günlük kota dolduğu için geçici olarak 8B modelini öne aldık
-        "llama-3.3-70b-versatile", 
-        "mixtral-8x7b-32768"       # Ekstra yedek
+        "llama-3.3-70b-versatile", # En gelişmiş model (Llama 3.3)
+        "llama-3.1-70b-versatile", # Güçlü yedek
+        "llama-3.1-8b-instant"     # Hızlı fallback
     ])
     ping_model: str = None         # Fallback test modeli (None ise brain_models[0] kullanılır)
     function_calling_enabled: bool = False  # [V9.7] Devre dışı bırakıldı: LLM'in [PLAN] metnini doğrudan üretmesini zorunlu kılar.
