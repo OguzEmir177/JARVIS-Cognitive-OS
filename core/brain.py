@@ -20,6 +20,7 @@ class GroqBrain:
         "SCHEDULE",          # [V9.2] Zamanlama (Iron Dome'a açıkça eklendi)
         "WEB_SEARCH",        # [V9.6] İçerik döndüren gerçek arama
         "REMEMBER",          # [V9.7] Uzun süreli hafıza kayıt
+        "STARTUP_REMINDER",  # [V9.8] Bir sonraki açılışta hatırlat
         "MAP_SHOW",          # [V10.0] Harita gösterimi
         "CHART_SHOW",        # [V10.0] Grafik/İstatistik gösterimi
         "GOOGLE_TRENDS",     # [V10.2] Google Trends araması
@@ -106,7 +107,9 @@ class GroqBrain:
             "   a) Kullanıcı 'Messi kaç yaşında?', 'Hava nasıl?' gibi bir soru sorarsa veya sana bilgi sorarsa DAİMA arka planda çalışan [PROTOCOL: WEB_SEARCH] <sorgu> kullan. Bu araç görünmezdir ve doğrudan sana veri sağlar.\n"
             "   b) Kullanıcı ÖZELLİKLE 'Google'da arat', 'tarayıcıda aç', 'ekranda göster' derse SADECE o zaman [PROTOCOL: GOOGLE_SEARCH] <sorgu> kullan. Bu araç görünür bir sekme açar.\n"
             "   Gereksiz yere sekmeler (GOOGLE_SEARCH) açmak KESİNLİKLE YASAKTIR.\n"
-            "24. UZUN SÜRELİ HAFIZA KURALI: Kullanıcı kendisi, sevdiği şeyler, tercihleri veya hayatı hakkında kalıcı bir bilgi verdiğinde bunu AÇIKÇA kaydetmek için [PROTOCOL: REMEMBER] <bilgi> kullan. Örnek: 'Benim adım Oğuz' -> [PROTOCOL: REMEMBER] Kullanıcının adı Oğuz. Yalnızca önemli kişisel bilgileri kaydet.\n"
+            "24. UZUN SÜRELİ HAFIZA VE BAŞLANGIÇ HATIRLATMASI KURALI:\n"
+            "   A) Kullanıcı kendisi, sevdiği şeyler, tercihleri veya hayatı hakkında kalıcı bir bilgi verdiğinde ('bunu hafızana kaydet') bunu AÇIKÇA kaydetmek için [PROTOCOL: REMEMBER] <bilgi> kullan. Örnek: 'Benim adım Oğuz' -> [PROTOCOL: REMEMBER] Kullanıcının adı Oğuz. Yalnızca önemli kişisel bilgileri kaydet.\n"
+            "   B) Kullanıcı 'Bunu bana bir sonraki açılışında hatırlat', 'yarın seni açtığımda bana bunu söyle' gibi bir sonraki oturum için hatırlatma isterse [PROTOCOL: STARTUP_REMINDER] <mesaj> kullan. Örnek: 'Bir sonraki açılışta evi temizlememi hatırlat' -> [PROTOCOL: STARTUP_REMINDER] Evi temizlemelisiniz.\n"
             "25. HARİTA KURALI: Kullanıcı bir konumun nerede olduğunu sorduğunda, koordinatlarını istediğinde veya 'haritada göster' dediğinde SADECE [PROTOCOL: MAP_SHOW] <lat>|<lon>|<title>|<zoom> kullan. "
             "Örnek: 'İstanbul nerede?' -> [PROTOCOL: MAP_SHOW] 41.0082|28.9784|İstanbul|10. "
             "Eğer koordinatları bilmiyorsan önce WEB_SEARCH ile öğren.\n"

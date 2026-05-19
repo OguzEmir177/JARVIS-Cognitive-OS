@@ -351,6 +351,8 @@ def create_default_registry() -> ToolRegistry:
             SystemPowerTool, # [V9.3] EKLENDİ
             EpicLaunchTool,  # [V9.4] EKLENDİ
             ShutdownTool,    # [V9.5] EKLENDİ
+            RememberTool,    # [V9.6] EKLENDİ
+            NextStartupReminderTool, # [V9.6] EKLENDİ
             YouTubeStrategyTool, # [V15.1] EKLENDİ
             LLMEvalTool,     # [V15.3] EKLENDİ
         )
@@ -365,6 +367,8 @@ def create_default_registry() -> ToolRegistry:
         registry.register(SystemPowerTool()) # [V9.3] EKLENDİ
         registry.register(EpicLaunchTool())  # [V9.4] EKLENDİ
         registry.register(ShutdownTool())    # [V9.5] EKLENDİ
+        registry.register(RememberTool())    # [V9.6] EKLENDİ
+        registry.register(NextStartupReminderTool()) # [V9.6] EKLENDİ
         registry.register(YouTubeStrategyTool()) # [V15.1] EKLENDİ
         registry.register(LLMEvalTool())     # [V15.3] EKLENDİ
         logger.info("System tools kaydedildi")

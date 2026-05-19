@@ -459,6 +459,55 @@ class SpeakTool(BaseTool):
             data={"reply": msg}
         )
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  RememberTool  [V9.6] Hafızaya Kalıcı Bilgi Kaydetme
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class RememberTool(BaseTool):
+    """
+    [V9.6] Hafızaya kalıcı bilgi kaydeder.
+    """
+    name = "remember_info"
+    description = "Kullanıcı hakkında önemli kişisel veya kalıcı bir bilgiyi hafızaya kaydeder."
+    protocol_tag = "REMEMBER"
+    domain = "system"
+    parameters = {"information": "str"}
+    latency_ms = 500
+    reliability_score = 0.95
+
+    async def execute(self, params: dict, engine_context: dict = None) -> ToolResult:
+        if isinstance(params, str):
+            info = params
+        else:
+            info = params.get("information", "")
+            if not info and params:
+                info = str(list(params.values())[0])
+
+        info = info.strip()
+        if not info:
+            return ToolResult(
+                success=False,
+                message="Kaydedilecek bilgi bulunamadı.",
+                speak="Efendim, neyi kaydetmemi istediğinizi anlayamadım."
+            )
+
+        ctx = engine_context or {}
+        memory = ctx.get("memory")
+        if not memory:
+            return ToolResult(success=False, message="Memory nesnesi bulunamadı.", speak="Hafıza modülüm şu an devre dışı.")
+
+        try:
+            await memory.save_memory_async(info, "episodic", {"importance": 0.8, "source": "user_command"})
+            return ToolResult(
+                success=True,
+                verified=True,
+                message="Bilgi hafızaya kaydedildi.",
+                speak="Bu bilgiyi hafızama kaydettim Efendim."
+            )
+        except Exception as e:
+            logger.error(f"RememberTool error: {e}")
+            return ToolResult(success=False, message=str(e), speak="Bilgiyi kaydederken bir hata oluştu.")
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  ScheduleTool  [V9.2] Dinamik Zamanlama
@@ -550,6 +599,74 @@ class ScheduleTool(BaseTool):
             success=True,
             message=f"Hatırlatma kuruldu: {minutes} dakika sonra ({target.strftime('%H:%M')})",
             speak=f"{minutes} dakika sonra hatırlatacağım Efendim.",
+        )
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  NextStartupReminderTool  [V9.6] Bir sonraki açılışta hatırlat
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class NextStartupReminderTool(BaseTool):
+    """
+    [V9.6] Jarvis'in bir sonraki bilgisayar/program açılışında kullanıcıya 
+    söylemesi gereken şeyleri kaydeder.
+    """
+    name              = "next_startup_reminder"
+    description       = "Bir sonraki program açılışında hatırlatılması istenen mesajı kaydeder."
+    protocol_tag      = "STARTUP_REMINDER"
+    domain            = "system"
+    latency_ms        = 50
+    reliability_score = 0.95
+    parameters        = {"message": "str"}
+
+    async def execute(self, params: dict, engine_context: dict = None) -> ToolResult:
+        import os, json
+
+        if isinstance(params, str):
+            message = params
+        else:
+            message = params.get("message", "")
+            if not message and params:
+                message = str(list(params.values())[0])
+
+        message = message.strip()
+        if not message:
+            return ToolResult(
+                success=False,
+                message="Hatırlatma mesajı boş.",
+                speak="Efendim, neyi hatırlatmamı istediğinizi söylemediniz."
+            )
+
+        filepath = os.path.join(os.getcwd(), "startup_reminders.json")
+        reminders = []
+
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        reminders = data
+            except Exception:
+                pass
+
+        reminders.append(message)
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(reminders, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            logger.error(f"Başlangıç hatırlatması kaydedilemedi: {e}")
+            return ToolResult(
+                success=False,
+                message=str(e),
+                speak="Efendim, hatırlatmayı kaydederken bir hata oluştu."
+            )
+
+        return ToolResult(
+            success=True,
+            verified=True,
+            message="Başlangıç hatırlatması kaydedildi.",
+            speak="Anlaşıldı Efendim, bunu bir sonraki açılışımda size hatırlatacağım."
         )
 
 

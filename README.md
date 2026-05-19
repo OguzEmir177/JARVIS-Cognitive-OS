@@ -40,6 +40,7 @@ Karar mekanizması, dil modellerinin çıktılarını katı kurallı (strictly-t
 J.A.R.V.I.S., statik bilgi saklamak yerine **bilişsel yansıma ve tecrübe edinme** mekanizmaları barındırır:
 *   **Öz-Yansıma (Reflector):** Yürütülen her görev veya yaşanan her başarısızlık sonrasında *"Ne yanlış gitti?", "Hangi araç işe yaradı?"* sorularına yanıt arayarak hatanın kök nedenini analiz eder.
 *   **Episodik Bellek (Episodic Memory):** Yaşanan tecrübeleri, hata kodlarını ve başarılı çalışma metriklerini yerel veri tabanı vektör semantik eşleştirmesi ile hafızada tutar. Benzer bir görevle karşılaşıldığında geçmişteki çözümü otonom olarak hatırlar.
+*   **Kişisel & Başlangıç Hafızası:** `[PROTOCOL: REMEMBER]` ve `[PROTOCOL: STARTUP_REMINDER]` araçları sayesinde uzun süreli kişisel verileri güvenli şekilde depolar ve sistem açılışlarında planlanmış hatırlatmaları size bildirir.
 
 ### 4. Dinamik Yeniden Planlama (Self-Healing - Kendi Kendini İyileştirme)
 Eğer bir işlem sırasında beklenmeyen bir engel (hata, kısıtlama, web sitesinin değişmesi vb.) oluşursa:

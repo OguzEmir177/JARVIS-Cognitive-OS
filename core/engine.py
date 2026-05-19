@@ -185,6 +185,10 @@ class ExecutionEngine:
     async def start(self) -> None:
         """Ana yürütme döngüsü."""
         self._running = True
+        
+        # Startup reminders control
+        await self._check_startup_reminders()
+        
         await self.io_bridge.speak("Efendim, sistemler hazır. Buyurun sizi dinliyorum.")
         # [V9.0] Scheduler'ı arka planda başlat
         self._scheduler_task = asyncio.create_task(self.scheduler.run())
@@ -638,6 +642,27 @@ class ExecutionEngine:
         await self.io_bridge.speak("Sistemler kapatılıyor. İyi günler dilerim Efendim.")
         self.io_bridge.request_shutdown()   # ← GUI sinyali + bayrak + sentinel
         self._running = False
+
+    async def _check_startup_reminders(self) -> None:
+        """Okunmamış başlangıç hatırlatmalarını kontrol edip okur."""
+        import os, json
+        filepath = os.path.join(os.getcwd(), "startup_reminders.json")
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    reminders = json.load(f)
+                
+                if reminders and isinstance(reminders, list):
+                    await self.io_bridge.speak("Efendim, önceki açılıştan kalan hatırlatmalarınız var.")
+                    for item in reminders:
+                        await self.io_bridge.speak(item)
+                        await asyncio.sleep(1)
+                
+                # Temizle
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                logger.error(f"Başlangıç hatırlatma okuma hatası: {e}")
 
     def _init_memory(self):
         from core.memory import MemoryManager
