@@ -7,6 +7,8 @@ contacts.json
 # Databases and Memory
 memory_db/
 jarvis_memory_db/
+test_db/
+test_db_2/
 *.db
 *.sqlite3
 
@@ -17,3 +19,22 @@ WHATSAPP_HATA.txt
 __pycache__/
 *.pyc
 .jarvis_autostart
+
+# Large dumps and history files
+ai_studio_code.py
+Jarvis_Project_Full_Code.txt
+diff.txt
+diff_utf8.txt
+tree.txt
+
+# TTS Audio Caches
+*.mp3
+*.wav
+
+# Testing and Coverage cache
+.coverage
+.pytest_cache/
+validation_output/
+validation_reports/
+validation/
+errors/
