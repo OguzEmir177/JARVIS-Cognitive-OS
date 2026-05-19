@@ -298,10 +298,17 @@ class GroqBrain:
             # [V15.5] Küçük modellere düşerken history'yi agresif kırp
             # 8b modelin Groq free tier TPM limiti 6000 — sığması için
             if "8b" in current_model:
-                # Sadece system prompt + son 2 mesaj + yeni user input bırak
+                # Sadece system prompt + system_injection (memory) + son 2 mesaj + yeni user input bırak
                 trimmed = [messages[0]]  # system prompt
-                if len(messages) > 3:
-                    trimmed += messages[-2:]  # son user+assistant çifti
+                
+                # messages[1] her zaman system_injection (hafıza) içerir. Onu da mutlaka ekle.
+                if len(messages) > 1 and messages[1].get("role") == "system":
+                    trimmed.append(messages[1])
+                
+                # Geçmiş mesajları kırp (son 2 mesajı al)
+                if len(messages) > 4:
+                    trimmed += messages[-3:-1]  # son user+assistant çifti (user input henüz sonda değilse)
+                
                 trimmed.append(messages[-1])  # yeni user input (zaten son eleman)
                 # Duplicate kontrolü
                 seen = set()
