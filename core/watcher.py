@@ -31,9 +31,9 @@ class ProactiveWatcher:
     """
 
     # ── Dinamik Aralık Sabitleri ──────────────────────────────────────────
-    MIN_INTERVAL_SECONDS = 180      # Minimum gözlem aralığı: 3 dakika (Limit koruma)
-    MAX_INTERVAL_SECONDS = 1200     # Maksimum gözlem aralığı: 20 dakika
-    DEFAULT_INTERVAL_SECONDS = 600  # Varsayılan başlangıç: 10 dakika
+    MIN_INTERVAL_SECONDS = 300       # Minimum gözlem aralığı: 5 dakika (Limit koruma)
+    MAX_INTERVAL_SECONDS = 1800      # Maksimum gözlem aralığı: 30 dakika
+    DEFAULT_INTERVAL_SECONDS = 900   # Varsayılan başlangıç: 15 dakika
 
     # Hızlanma/yavaşlama çarpanları
     SPEEDUP_FACTOR = 0.6    # Değişim algılandığında aralığı %60'a düşür
@@ -41,6 +41,10 @@ class ProactiveWatcher:
 
     # Benzerlik eşiği — bu oranın altında fark varsa "değişim yok" sayılır
     SIMILARITY_THRESHOLD = 0.85
+
+    # [V13.1] Stabil ekranda API çağrısı atlama eşiği
+    # Bu kadar ardışık stabil döngü sonrası brain.think() ÇAĞRILMAZ
+    STABLE_SKIP_THRESHOLD = 3
 
     # ── Davranış Kalibrasyonu Sabitleri ───────────────────────────────────
     MAX_CONSECUTIVE_SILENCE = 6     # 6 döngü ardışık susarsa, gözlem özeti paylaş
@@ -129,7 +133,7 @@ class ProactiveWatcher:
         else:
             screen_summary = "Ekranda belirgin bir uygulama yok veya masaüstünde."
 
-        # ── [4] DİNAMİK ARALIK HESAPLAMASI ──────────────────────────────
+        # ── [İYİLEŞTİRME] DİNAMİK ARALIK HESAPLAMASI ─────────────────────────
         screen_changed = self._detect_screen_change(screen_summary)
         self._adjust_interval(screen_changed)
 
@@ -143,6 +147,19 @@ class ProactiveWatcher:
                 )
             except Exception as e:
                 logger.warning(f"[WATCHER] Vision status gönderilemedi: {e}")
+
+        # ── [V13.1] STABİL EKRAN KORUMASI — API Limit Kalkanı ─────────
+        # Ekran uzun süredir değişmediyse (oyun, film, AFK vb.)
+        # brain.think() çağrısı YAPMA — API kotasını koru
+        if self._consecutive_stable >= self.STABLE_SKIP_THRESHOLD:
+            logger.info(
+                f"[WATCHER] Ekran {self._consecutive_stable} döngüdür stabil — "
+                f"API çağrısı atlandı (limit koruma). Aralık: {self._current_interval:.0f}s"
+            )
+            # Sadece lokal gözlem kartı gönder, API çağrısı yapma
+            if screen_summary and len(screen_summary) > 30:
+                self._send_vision_card(now, screen_summary + " [API Atlandı — Stabil]", silent=True)
+            return
 
         # ── [5] DAVRANIŞ KALİBRASYONU — Proaktiflik Seviyesi ────────────
         proactivity = self._get_proactivity_level(now)

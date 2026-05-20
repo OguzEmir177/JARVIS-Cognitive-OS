@@ -49,6 +49,15 @@ class IOBridge:
     def text_mode(self, value: bool) -> None:
         old_mode = self._text_mode
         self._text_mode = value
+
+        # [V13.1] STT Mute/Unmute — Yazılı modda mikrofonu tamamen kapat
+        if self._stt_instance and hasattr(self._stt_instance, "_muted"):
+            self._stt_instance._muted = value
+            if value:
+                logger.info("[IOBridge] STT susturuldu — yazılı mod aktif, mikrofon devre dışı.")
+            else:
+                logger.info("[IOBridge] STT aktif — sesli mod, mikrofon açık.")
+
         if old_mode and not value:
             if self.text_input_queue:
                 self.text_input_queue.put("")
