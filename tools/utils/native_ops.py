@@ -342,16 +342,32 @@ class NativeOps:
             await loop.run_in_executor(None, webbrowser.open, url)
 
             # ── ADIM 4: Bekleme — WhatsApp Desktop yüklensin ─────────────────
-            logger.info("[WhatsApp] Uygulama yüklenmesi için 6.5s bekleniyor...")
-            await asyncio.sleep(6.5)
+            logger.info("[WhatsApp] Uygulama yüklenmesi için 10s bekleniyor...")
+            await asyncio.sleep(8.0)
 
-            # ── ADIM 5: Enter → Gönder ────────────────────────────────────────
+            # ── ADIM 5: Pencereyi Odakla ve Enter → Gönder ────────────────────
+            # Uygulama yeni açılıyorsa metnin URL'den kutuya düşmesi zaman alabilir.
+            # Ön plana getirmeyi deneriz.
+            if gw:
+                try:
+                    windows = gw.getWindowsWithTitle("WhatsApp")
+                    if windows:
+                        win = windows[0]
+                        if getattr(win, "isMinimized", False):
+                            win.restore()
+                        win.activate()
+                        await asyncio.sleep(1.0)
+                except Exception as e:
+                    logger.debug(f"[WhatsApp] Pencere odaklama atlandı: {e}")
+            else:
+                await asyncio.sleep(2.0)
+
             # pyautogui.press senkron/blocking → run_in_executor ile çağır.
-            # Bazen WhatsApp metni doldurur ama odak (focus) gönderme tuşunda olmaz veya gecikir. 
-            # Garantiye almak için iki kez Enter (arada 0.5s bekleme ile) gönderiyoruz.
-            await loop.run_in_executor(None, pyautogui.press, "enter")
-            await asyncio.sleep(0.5)
-            await loop.run_in_executor(None, pyautogui.press, "enter")
+            # Metnin dolması veya arayüzün tepki vermesi gecikebileceğinden
+            # garantiye almak için aralıklarla 3 kez Enter basıyoruz.
+            for _ in range(3):
+                await loop.run_in_executor(None, pyautogui.press, "enter")
+                await asyncio.sleep(1.0)
 
             logger.info(f"[WhatsApp] Mesaj gönderildi → {clean_number}")
             return True
