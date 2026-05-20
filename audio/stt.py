@@ -335,6 +335,11 @@ class SpeechToText:
                 # pause_threshold'u eski haline döndür
                 self.recognizer.pause_threshold = old_pause
 
+                # [V13.1 FIX] Eğer dinleme işlemi sırasında mute edildiysek (yazılı moda geçildiyse)
+                # sesi işleme, hemen iptal et.
+                if self._muted:
+                    return None
+
                 # ── Transkripsiyon Pipeline ──
                 raw_text = None
 
@@ -371,6 +376,12 @@ class SpeechToText:
                     return None
 
                 final_text = final_text.strip()
+                
+                # [V13.1 FIX] İşlemler (API vs.) sürerken yazılı moda geçilmiş olabilir
+                # En son aşamada tekrar kontrol et, kapalıysa çöpe at.
+                if self._muted:
+                    return None
+                    
                 print(f"Sen (Sesli): {final_text}")
                 return final_text
 
