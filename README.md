@@ -101,6 +101,43 @@ OPENAI_API_KEY=your-openai-api-key
 
 ---
 
+## 🔄 How to Update & Backup Guide
+
+### ⚠️ What Data to Back Up First
+Before upgrading to a new version of J.A.R.V.I.S., always back up the following critical files and folders to keep your memory database, API keys, and settings secure:
+1. **`.env`**: Contains your AI API keys, configurations, and environment variables.
+2. **`memory_db/` (Folder)**: Contains your local vector database which stores all your episodic memories, past experiences, and learned behaviors.
+3. **`contacts.json`**: Contains your saved contact details for communications and integration tools.
+
+### 🚀 Step-by-Step Update Process
+
+#### Method A: If Installed via Git (Recommended)
+1. **Back up your data:** Copy `.env`, `contacts.json`, and the `memory_db/` directory to a secure temporary folder outside your project path.
+2. **Pull the latest version:**
+   ```bash
+   git stash
+   git pull origin main
+   git stash pop
+   ```
+3. **Restore your data:** Place your backed-up `.env`, `contacts.json`, and `memory_db/` folder back into the root of the project.
+4. **Update packages:**
+   ```bash
+   pip install -r requirements.txt --upgrade
+   ```
+5. **Re-launch J.A.R.V.I.S.:** Launch using your preferred console or GUI options.
+
+#### Method B: If Downloaded as a ZIP
+1. **Save your files:** Copy `.env`, `contacts.json`, and the `memory_db/` directory to a safe place.
+2. **Download & Extract:** Download the latest J.A.R.V.I.S. ZIP file from the official repository and extract it.
+3. **Replace files:** Copy the new folders and files over your current installation directory.
+4. **Restore settings:** Move your saved `.env`, `contacts.json`, and `memory_db/` folder back into the project root folder.
+5. **Update packages:**
+   ```bash
+   pip install -r requirements.txt --upgrade
+   ```
+
+---
+
 ## 👤 About the Developer
 
 This project is developed by **Oğuz Emir Topuz**.
