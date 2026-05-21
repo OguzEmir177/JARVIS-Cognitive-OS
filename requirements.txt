@@ -13,3 +13,5 @@ playwright>=1.40.0
 pywinauto>=0.6.8
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+matplotlib>=3.10.9
+customtkinter>=5.2.2
