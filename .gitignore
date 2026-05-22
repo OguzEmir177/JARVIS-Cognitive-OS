@@ -1,6 +1,11 @@
 # API Keys and Secrets
 .env
 
+# Updater temp/backup files
+_jarvis_backup/
+_update_temp.zip
+_update_extract/
+
 # Personal Data
 contacts.json
 
