@@ -96,11 +96,14 @@ class CognitiveCore:
         if self._tool_router is None and not self._router_loading:
             self._router_loading = True
             try:
-                from core.tool_router import AutonomousToolRouter
-                self._tool_router = AutonomousToolRouter()
-                logger.info("Semantic ToolRouter loaded.")
+                from core.semantic_router import SemanticRouter
+                self._tool_router = SemanticRouter()
+                logger.info("SemanticRouter (Vector-based) loaded.")
+            except ImportError as e:
+                logger.error(f"SemanticRouter ImportError: {e}. Lütfen requirements.txt kurulumlarını yapın.")
+                self._router_loading = False
             except Exception as e:
-                logger.warning(f"ToolRouter yüklenemedi: {e}")
+                logger.warning(f"SemanticRouter yüklenemedi: {e}")
                 self._router_loading = False
         return self._tool_router
 

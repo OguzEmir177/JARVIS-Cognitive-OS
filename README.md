@@ -1,4 +1,4 @@
-# 🧠 J.A.R.V.I.S. v13.3 — Autonomous Cognitive OS & Agent Architecture 🚀
+# 🧠 J.A.R.V.I.S. v14.0 — Autonomous Cognitive OS & Agent Architecture 🚀
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 [![Asyncio Core](https://img.shields.io/badge/Asynchronous-Core-FF6F00?style=for-the-badge&logo=cpu&logoColor=white)](https://docs.python.org/3/library/asyncio.html)
@@ -6,7 +6,7 @@
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-NLP-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co)
 [![VectorDB Memory](https://img.shields.io/badge/Episodic_Memory-VectorDB-0052FF?style=for-the-badge&logo=databricks&logoColor=white)](https://www.trychroma.com/)
 
-**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is a **v13.3 Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
+**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is a **v14.0 Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
 
 Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down complex goals into dynamic sub-task trees to run autonomous tasks across browsers, desktop applications, and system hardware.
 
@@ -14,10 +14,17 @@ Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down
 
 ## 📜 Changelog / Güncelleme Geçmişi
 
-### 🚀 v13.3 — Kurumsal "Fail-Fast & Async" Mimari Güncellemesi (Güncel)
+### 🚀 v14.0.0 — Lokal Semantic Router (Zero-Latency Yönlendirme) (Güncel)
+* **LLM Bağımsız (Zero-Cost) Yönlendirme:** Spagetti (Karmaşık If/Else ve Regex yığını) kodlarına sahip olan eski `AutonomousToolRouter` sistemden tamamen silindi! Yerine saf makine öğrenmesi tabanlı (`scikit-learn` TF-IDF ve Cosine Similarity) **`SemanticRouter`** entegre edildi.
+* **Milisaniyelik Yanıt Süresi:** Basit ve net komutlar ("Google'ı aç", "PC'yi kapat", "Müziği durdur"), LLM'e (GroqBrain) gitmek yerine *lokal vektör uzayında milisaniyeler içinde eşleştirilir ve doğrudan çalıştırılır.*
+* **Ambiguity Gate (Akıllı Güvenlik Kapısı):** Router güven skoru %65'in altındaysa (yani komut karmaşıksa) sistem komutu otomatik olarak LLM'e (GroqBrain) Fallback (devir) yapar. LLM sadece gerçekten zeka gerektiren görevler için kullanılır.
+
+### 🛡️ v13.3.0 — Kurumsal "Fail-Fast & Async" Mimari Güncellemesi
 * **Fail-Fast (Hızlı Çökme) Prensibi:** `core/brain.py` ve `core/engine.py` modüllerindeki bağlantı testlerinde amatörce hata yutan `except: pass` mantığı tamamen silindi. API veya model hataları durumunda sistem kısıtlı modda çalışmak yerine, kurumsal standartlarda dürüstçe çöker ve kullanıcıya net bir log (`SystemError`) döndürür.
 * **Async Uyum & Darboğaz (Bottleneck) Çözümü:** Başlangıçta dosya okuma (I/O) işlemlerinin `event-loop`'u blokladığı bir vizyonsuzluk tespit edildi (`_check_startup_reminders`). Tüm I/O işlemleri kurumsal asenkron standartlarına çekilerek `run_in_executor` ile Event-Loop zehirlenmesinden kurtarıldı.
 * **Hata Ayıklama Yeteneği Artırıldı:** Sistem çöktüğünde üretilen loglar, sorunun nerede (API mi, model mi, internet mi) kaynaklandığını netleştiren detaylara kavuştu.
+
+
 
 ---
 
