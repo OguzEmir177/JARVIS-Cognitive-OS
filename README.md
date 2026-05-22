@@ -1,4 +1,4 @@
-# 🧠 J.A.R.V.I.S. v12.0 — Autonomous Cognitive OS & Agent Architecture 🚀
+# 🧠 J.A.R.V.I.S. v13.2 — Autonomous Cognitive OS & Agent Architecture 🚀
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 [![Asyncio Core](https://img.shields.io/badge/Asynchronous-Core-FF6F00?style=for-the-badge&logo=cpu&logoColor=white)](https://docs.python.org/3/library/asyncio.html)
@@ -6,9 +6,26 @@
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-NLP-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co)
 [![VectorDB Memory](https://img.shields.io/badge/Episodic_Memory-VectorDB-0052FF?style=for-the-badge&logo=databricks&logoColor=white)](https://www.trychroma.com/)
 
-**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is a **v12.0 Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
+**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is a **v13.2 Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
 
 Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down complex goals into dynamic sub-task trees to run autonomous tasks across browsers, desktop applications, and system hardware.
+
+---
+
+## 🆕 What's New in v13.2 — Project "Ghost Shield"
+
+J.A.R.V.I.S. v13.2 introduces critical improvements to the voice interaction layer and update management:
+
+### 1. 🛡️ Whisper Hallucination Shield ("Ghost Shield")
+* **Low-Energy RMS Gate:** Prevents silent or low-volume audio bytes from being sent to the Whisper API. If the audio level is below **350 RMS**, the pipeline discards it instantly locally, saving API token costs and bandwidth.
+* **Semantic Blocklist:** Autonomously detects and blocks common Turkish Whisper silence hallucinations such as *"altyazı m.k."*, *"like atın"*, *"abone ol"*, and English defaults like *"thanks for watching"*.
+* **Smart Noise Gate:** Automatically discards short voice signals containing only vocal fillers (`ıı`, `ee`, `yani`, etc.) to prevent false intent activations.
+
+### 🔄 2. One-Click Auto-Updater (`update.py`)
+No Git? No problem! J.A.R.V.I.S. now ships with a native, zero-dependency update orchestrator.
+* **How it works:** Simply run `python update.py`. The script downloads the latest repository code from GitHub, validates file hashes, and safely replaces modified files.
+* **Zero Personal Data Leak:** The updater **never** touches or overwrites your personal configuration files (`.env`, `contacts.json`), local memories (`memory_db/`), or recorded logs.
+* **Auto-Backup:** Creates an instant backup of your custom modifications in `_jarvis_backup/` before applying updates.
 
 ---
 
