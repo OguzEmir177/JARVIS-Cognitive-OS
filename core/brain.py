@@ -458,5 +458,7 @@ class GroqBrain:
                 timeout=3.0
             )
             return True
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger("JARVIS.Brain").error(f"Kritik API Bağlantı Hatası: {e}")
             return False

@@ -647,22 +647,25 @@ class ExecutionEngine:
         """Okunmamış başlangıç hatırlatmalarını kontrol edip okur."""
         import os, json
         filepath = os.path.join(os.getcwd(), "startup_reminders.json")
-        if os.path.exists(filepath):
+        
+        def _read_and_clear():
+            if not os.path.exists(filepath):
+                return None
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
-                    reminders = json.load(f)
-                
-                if reminders and isinstance(reminders, list):
-                    await self.io_bridge.speak("Efendim, önceki açılıştan kalan hatırlatmalarınız var.")
-                    for item in reminders:
-                        await self.io_bridge.speak(item)
-                        await asyncio.sleep(1)
-                
-                # Temizle
-                if os.path.exists(filepath):
-                    os.remove(filepath)
+                    data = json.load(f)
+                os.remove(filepath)
+                return data
             except Exception as e:
                 logger.error(f"Başlangıç hatırlatma okuma hatası: {e}")
+                return None
+
+        reminders = await asyncio.get_running_loop().run_in_executor(None, _read_and_clear)
+        if reminders and isinstance(reminders, list):
+            await self.io_bridge.speak("Efendim, önceki açılıştan kalan hatırlatmalarınız var.")
+            for item in reminders:
+                await self.io_bridge.speak(item)
+                await asyncio.sleep(1)
 
     def _init_memory(self):
         from core.memory import MemoryManager
@@ -696,12 +699,13 @@ class ExecutionEngine:
             )
             await asyncio.sleep(wait_s)
 
-        # Tüm denemeler başarısız — kısıtlı modda başlat (RuntimeError atmıyoruz)
-        logger.error(
-            "Brain bağlantısı hiç kurulamadı! "
-            "Sistem kısıtlı modda (bağlantısız) başlatılıyor."
+        # Fail-Fast Prensibi: Tüm denemeler başarısızsa kısıtlı mod yerine sistemi çökertip net log ver.
+        error_msg = (
+            f"Kritik Hata: Brain bağlantısı {self.config.brain_connect_retries} denemeye rağmen kurulamadı! "
+            "Lütfen internet bağlantınızı ve GROQ_API_KEY bilginizi kontrol edin."
         )
-        return b
+        logger.critical(error_msg)
+        raise SystemError(error_msg)
 
     def _run_autonomous_cleanup(self) -> None:
         """[V15.5] Otonom Çöp Temizleyici - Tüm kirli etiketleri temizler."""
