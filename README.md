@@ -1,4 +1,4 @@
-# 🧠 J.A.R.V.I.S. v15.0 — Autonomous Cognitive OS & Agent Architecture 🚀
+# 🧠 J.A.R.V.I.S. v16.0 — Autonomous Cognitive OS & Agent Architecture 🚀
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 [![Asyncio Core](https://img.shields.io/badge/Asynchronous-Core-FF6F00?style=for-the-badge&logo=cpu&logoColor=white)](https://docs.python.org/3/library/asyncio.html)
@@ -6,7 +6,7 @@
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-NLP-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co)
 [![VectorDB Memory](https://img.shields.io/badge/Episodic_Memory-VectorDB-0052FF?style=for-the-badge&logo=databricks&logoColor=white)](https://www.trychroma.com/)
 
-**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is a **v15.0 Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
+**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is a **v16.0 Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
 
 Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down complex goals into dynamic sub-task trees to run autonomous tasks across browsers, desktop applications, and system hardware.
 
@@ -14,7 +14,12 @@ Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down
 
 ## 📜 Changelog / Güncelleme Geçmişi
 
-### 🚀 v15.0.0 — Autonomous Self-Learning Loop (Dynamic Embedding Cache) (Güncel)
+### 🌟 v16.0.0 — The AGI Update: Dynamic Skill Synthesizer (Güncel)
+* **Kendi Aracını Yazma (Tool Synthesis):** Sistem artık bilmediği bir görevle karşılaştığında pes etmiyor. LLM'i kullanarak o işi yapacak asenkron bir Python kodu (`BaseTool` miras alan) sentezler, `tools/dynamic_skills/` klasörüne kaydeder ve sistemi yeniden başlatmadan (Hot-Reload) `ToolRegistry`'ye enjekte ederek anında çalıştırır.
+* **AST Tabanlı Güvenlik Sandbox'ı:** LLM'in ürettiği kodların sistemi ele geçirmesini önlemek adına (Security Vulnerability), kodlar çalıştırılmadan önce *Abstract Syntax Tree (AST)* ile taranır. `eval`, `exec` gibi tehlikeli fonksiyonlar ve izin verilmeyen (whitelist dışı) modül import'ları anında engellenerek Fail-Fast prensibiyle sistemin çökmesi önlenir.
+* **Tam Asenkron İzolasyon:** Dinamik kod üretimi, disk yazma ve dinamik modül import (`importlib`) işlemleri tamamen `run_in_executor` arkasına alınarak J.A.R.V.I.S'in event-loop'unu mikrosaniye dahi bloklamaması sağlandı.
+
+### 🚀 v15.0.0 — Autonomous Self-Learning Loop (Dynamic Embedding Cache)
 * **Kendi Kendini Eğiten Yönlendirici (Self-Learning Router):** Semantic Router, `Dynamic Embedding Cache` ile entegre edildi. Sistem bilemediği (Confidence < %65) komutları LLM'e devrettikten sonra, başarılı bir şekilde çalışan komutları ve argümanlarını (`Kullanıcı Cümlesi -> Tool Tag + Args`) lokal bir JSON veritabanına asenkron I/O mimarisiyle kaydeder.
 * **Akıllı Budama (Pruning) ve RAM Kontrolü:** Otonom cache limiti 1000 komutla sınırlandırıldı. Kapasite dolduğunda "Least-Recently Used / Least Frequently Used" mantığı ile en az değer taşıyan vektörler otomatik olarak budanır, bu sayede RAM ve Disk şişmesi önlenir.
 * **Fail-Fast (Hızlı Çökme) Prensibi Entegrasyonu:** Tüm veri yükleme aşamaları sahte `except: pass` bloklarından arındırılarak bozuk veri durumunda sistemin direkt çökerek anında tepki vermesi sağlandı.

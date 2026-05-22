@@ -135,6 +135,12 @@ class ExecutionEngine:
             self.state_manager, self.io_bridge, self.config
         )
 
+        # [V16.0] Dynamic Skill Synthesizer
+        from core.skill_synthesizer import DynamicSkillSynthesizer
+        self.skill_synthesizer = DynamicSkillSynthesizer(self.executor.registry)
+        self.plan_executor.skill_synthesizer = self.skill_synthesizer
+        logger.info("Dynamic Skill Synthesizer başlatıldı.")
+
         # [V9.0] ContactManager — kişi profil yöneticisi başlatma
         from core.contact_manager import ContactManager
         self.contact_manager = ContactManager(memory_manager=self.memory)

@@ -141,11 +141,26 @@ class PlanExecutor:
                         await self.io_bridge.speak(f"Bulduğum en uygun yöntemle deniyorum.")
                 
                 if not learned:
-                    await self.io_bridge.speak(
-                        f"Efendim, '{node.protocol_tag}' adında bir yeteneğim veya protokolüm bulunmuyor. "
-                        f"Kendi başıma bir çözüm de üretemedim. Bunu benim için sisteme kodlamak ister misiniz?"
-                    )
-                    return False
+                    # [V16.0] Kutsal Kase: Tool Synthesis (Kendi Kendine Kod Yazma)
+                    synthesized = False
+                    if hasattr(self, 'skill_synthesizer') and self.skill_synthesizer:
+                        await self.io_bridge.speak(f"Efendim, bu işlem için hazır bir aracım yok. GroqBrain ile anında yeni bir araç kodluyorum. Lütfen bekleyin.")
+                        original_req = getattr(task_state, 'goal', str(node.argument))
+                        # Tool tag geçerli bir sınıf ismi formuna yakın olması için temizlenir
+                        safe_tag = "".join(c if c.isalnum() else "_" for c in node.protocol_tag.upper())
+                        if not safe_tag:
+                            safe_tag = "DYNAMIC_TOOL"
+                        synthesized = await self.skill_synthesizer.synthesize_tool(self.brain, original_req, safe_tag)
+                        
+                    if synthesized:
+                        await self.io_bridge.speak(f"Yeni aracı başarıyla sentezledim ve sisteme enjekte ettim. Şimdi çalıştırıyorum.")
+                        node.protocol_tag = safe_tag
+                    else:
+                        await self.io_bridge.speak(
+                            f"Efendim, '{node.protocol_tag}' adında bir yeteneğim yok. "
+                            f"Kendi başıma bir araç da sentezleyemedim."
+                        )
+                        return False
 
         # 3. Context Interpolation
         context = self._build_context(task_state)
