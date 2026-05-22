@@ -98,10 +98,13 @@ def _prefix_quality(q: str, token: str) -> float:
 #  (buraya kendi proje kısayol klasörlerinizi ekleyin)
 # ─────────────────────────────────────────────────────────────────────────────
 
+_home = os.path.expanduser("~")
 _USER_PROJECT_DIRS: list[str] = [
-    r"C:\Users\proog\OneDrive\Masaüstü\Projeler",
-    r"C:\Users\proog\OneDrive\Masaüstü",
-    r"C:\Users\proog\Desktop",
+    os.path.join(_home, "OneDrive", "Masaüstü", "Projeler"),
+    os.path.join(_home, "OneDrive", "Masaüstü"),
+    os.path.join(_home, "Desktop"),
+    os.path.join(_home, "Documents", "GitHub"),
+    os.path.join(_home, "source", "repos"),
 ]
 
 # Ek manuel keyword eşlemeleri — yazım varyantları
@@ -313,12 +316,14 @@ def _scan_uwp() -> list[AppEntry]:
 def _scan_steam() -> list[AppEntry]:
     """Steam kütüphanesindeki oyunları tarar."""
     entries: list[AppEntry] = []
-    steam_roots = [
-        r"D:\Steam\steamapps\common",
-        r"C:\Program Files (x86)\Steam\steamapps\common",
-        r"C:\Program Files\Steam\steamapps\common",
-        r"E:\Steam\steamapps\common",
-    ]
+    drives = [f"{chr(d)}:\\\\" for d in range(65, 91) if os.path.exists(f"{chr(d)}:\\\\")]
+    steam_roots = []
+    for d in drives:
+        steam_roots.extend([
+            os.path.join(d, "Steam", "steamapps", "common"),
+            os.path.join(d, "Program Files (x86)", "Steam", "steamapps", "common"),
+            os.path.join(d, "Program Files", "Steam", "steamapps", "common"),
+        ])
     for root in steam_roots:
         if not os.path.isdir(root):
             continue
@@ -360,12 +365,14 @@ def _scan_well_known() -> list[AppEntry]:
 def _scan_epic() -> list[AppEntry]:
     """Epic Games kütüphanesindeki oyunları tarar."""
     entries: list[AppEntry] = []
-    epic_roots = [
-        r"D:\Epic Games",
-        r"C:\Program Files\Epic Games",
-        r"C:\Program Files (x86)\Epic Games",
-        r"E:\Epic Games",
-    ]
+    drives = [f"{chr(d)}:\\\\" for d in range(65, 91) if os.path.exists(f"{chr(d)}:\\\\")]
+    epic_roots = []
+    for d in drives:
+        epic_roots.extend([
+            os.path.join(d, "Epic Games"),
+            os.path.join(d, "Program Files", "Epic Games"),
+            os.path.join(d, "Program Files (x86)", "Epic Games"),
+        ])
     for root in epic_roots:
         if not os.path.isdir(root):
             continue
