@@ -17,6 +17,7 @@ import speech_recognition as sr
 import pygame
 import math
 import array
+import struct
 import os
 import io
 import logging
@@ -110,6 +111,95 @@ def _polish_with_gemini(raw_text: str, api_key: str) -> Optional[str]:
     except Exception as e:
         logger.warning(f"[AI_POLISHER] Gemini parlatma hatası: {e}")
         return None
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# WHISPER HALÜSINASYON KALKANI
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Whisper sessizlikte/gürültüde ürettiği bilinen hayalet metinler.
+# Küçük harfe dönüştürülüp kontrol edilir.
+_WHISPER_HALLUCINATION_PATTERNS = [
+    "altyazı m.k.",
+    "altyazı m.k",
+    "altyazılar m.k.",
+    "alt yazı m.k.",
+    "alt yazı m.k",
+    "altyazı mk",
+    "alt yazı: m. k.",
+    "alt yazı: m.k.",
+    "altyazı",
+    "alt yazı",
+    "abone ol",
+    "abone olun",
+    "like atın",
+    "beğenmeyi unutmayın",
+    "teşekkürler",
+    "teşekkür ederim",
+    "izlediğiniz için teşekkürler",
+    "thanks for watching",
+    "thank you for watching",
+    "subscribe",
+    "like and subscribe",
+    "...",
+    ".",
+    ",",
+    "!",
+    "?",
+]
+
+
+def _is_whisper_hallucination(text: str) -> bool:
+    """
+    Whisper'ın sessizlikte ürettiği hayalet metinleri tespit eder.
+    Tam eşleşme veya kısmi eşleşme kontrolleri yapar.
+    """
+    if not text:
+        return True
+    
+    cleaned = text.lower().strip().rstrip('.').strip()
+    
+    # Boş veya çok kısa (1-2 karakter) → muhtemelen gürültü
+    if len(cleaned) < 2:
+        return True
+    
+    # Sadece noktalama işaretlerinden mi oluşuyor?
+    if all(c in '.,!?;:-…\'"()[] ' for c in cleaned):
+        return True
+    
+    # Bilinen halüsinasyon kalıplarıyla tam eşleşme
+    for pattern in _WHISPER_HALLUCINATION_PATTERNS:
+        if cleaned == pattern.lower().rstrip('.'):
+            return True
+    
+    # "altyazı" veya "alt yazı" İÇEREN kısa metinler (≤4 kelime)
+    if len(cleaned.split()) <= 4:
+        if "altyazı" in cleaned or "alt yazı" in cleaned:
+            return True
+    
+    return False
+
+
+def _calculate_audio_rms(audio: sr.AudioData) -> float:
+    """
+    Ses verisinin RMS (Root Mean Square) değerini hesaplar.
+    Bu değer sesin gerçek "yüksekliğini" ölçer.
+    Sessizlik ≈ 0-300, konuşma ≈ 500-10000+
+    """
+    try:
+        raw_data = audio.get_raw_data(convert_rate=16000, convert_width=2)
+        # 16-bit signed integer samples
+        num_samples = len(raw_data) // 2
+        if num_samples == 0:
+            return 0.0
+        samples = struct.unpack(f'<{num_samples}h', raw_data)
+        # RMS hesapla
+        sum_squares = sum(s * s for s in samples)
+        rms = math.sqrt(sum_squares / num_samples)
+        return rms
+    except Exception as e:
+        logger.warning(f"[RMS] Ses seviyesi hesaplanamadı: {e}")
+        return 9999.0  # Hata durumunda geçir (false positive'den iyidir)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -340,6 +430,18 @@ class SpeechToText:
                 if self._muted:
                     return None
 
+                # ── [V13.2] RMS Enerji Kontrolü — Sessiz sesi API'ye gönderme ──
+                audio_rms = _calculate_audio_rms(audio)
+                logger.debug(f"[RMS] Ses seviyesi: {audio_rms:.0f}")
+                
+                # RMS < 350 → mikrofon açık ama kimse konuşmuyor
+                # Bu eşik çoğu ortamda sessizliği yakalar.
+                # Gerekirse self.min_rms_threshold ile ayarlanabilir.
+                _MIN_RMS = 350
+                if audio_rms < _MIN_RMS:
+                    logger.debug(f"[RMS_SHIELD] Ses çok düşük ({audio_rms:.0f} < {_MIN_RMS}), atlanıyor.")
+                    return None
+
                 # ── Transkripsiyon Pipeline ──
                 raw_text = None
 
@@ -357,6 +459,11 @@ class SpeechToText:
 
                 # Hiçbir motor sonuç vermedi
                 if not raw_text:
+                    return None
+
+                # ── [V13.2] Whisper Halüsinasyon Kalkanı ──
+                if _is_whisper_hallucination(raw_text):
+                    print(f"[HALLUCINATION_SHIELD] Whisper hayalet metin reddedildi: '{raw_text}'")
                     return None
 
                 # ── Noise Shield: Sadece gürültüden ibaret mi? ──
