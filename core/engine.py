@@ -511,6 +511,13 @@ class ExecutionEngine:
                 if tools_used:
                     if is_success:
                         self.adaptive_learner.record_success(user_input, tools_used, args_used)
+                        
+                        # [V15.0] Semantic Router Dynamic Embedding Otonom Öğrenme
+                        if self.cognitive_core and len(tools_used) == 1 and not (forced_route and forced_route.is_forced):
+                            router = getattr(self.cognitive_core, 'tool_router', None)
+                            if router and hasattr(router, 'learn_new_route'):
+                                arg_to_save = args_used[0] if args_used else None
+                                asyncio.create_task(router.learn_new_route(user_input, tools_used[0], arg_to_save))
                     else:
                         self.adaptive_learner.record_failure(user_input, tools_used)
                 
