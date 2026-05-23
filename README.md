@@ -1,4 +1,4 @@
-# 🧠 J.A.R.V.I.S. v16.0 — Autonomous Cognitive OS & Agent Architecture 🚀
+# 🧠 J.A.R.V.I.S. v16.1.0 — Autonomous Cognitive OS & Agent Architecture 🚀
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 [![Asyncio Core](https://img.shields.io/badge/Asynchronous-Core-FF6F00?style=for-the-badge&logo=cpu&logoColor=white)](https://docs.python.org/3/library/asyncio.html)
@@ -6,39 +6,49 @@
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-NLP-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co)
 [![VectorDB Memory](https://img.shields.io/badge/Episodic_Memory-VectorDB-0052FF?style=for-the-badge&logo=databricks&logoColor=white)](https://www.trychroma.com/)
 
-**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is a **v16.0 Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
+**J.A.R.V.I.S. (Just A Rather Very Intelligent System)** is an **Autonomous Cognitive Operating System** and Agent architecture featuring episodic memory, a self-healing re-planning capability, and dynamic tree-based JSON planning that acts completely independently of one-way command scripts.
 
 Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down complex goals into dynamic sub-task trees to run autonomous tasks across browsers, desktop applications, and system hardware.
 
 ---
 
-## 📜 Changelog / Güncelleme Geçmişi
+## ✨ Latest Release (v16.1.0)
+> [!IMPORTANT]
+> **Code Freeze Audit — Security & Async Hardening**
+> * **[Security] Extended AST Sandbox:** The AST validator of `DynamicSkillSynthesizer` has been updated. Previously, only `eval`/`exec` function calls were blocked, which allowed access to shell-executing attributes/methods like `os.system()`, `subprocess.run()`, `subprocess.Popen()`, `subprocess.call()`, `subprocess.check_output()`, and similar methods inside synthesized code. All of these methods are now blocked at the AST level using `SecurityViolationError` under the Fail-Fast principle.
+> * **[Async] Fixed AdaptiveLearner Event-Loop Poisoning:** The `_save_strategies()` function was called directly from the async context via `record_success()` and `record_failure()`, blocking the event loop with `open()` + `json.dump()`. Added a new `_schedule_save()` method: when the event loop is active, I/O is automatically delegated to a thread pool via `run_in_executor`, otherwise running synchronously.
+> * **[Fail-Fast] Disabled Silent Exception Swallowing:** Disk write errors in `_save_strategies()` are now reported via `logger.error()` instead of `logger.debug()` (which was invisible). The generic `Exception` handler in `_load_strategies()` was split into `JSONDecodeError` and generic errors to clarify the error class.
+> * **[Async] Resolved Unawaited Future in Semantic Router:** The `run_in_executor` call inside the `route()` method was left unawaited, and any resulting errors were swallowed via `except: pass`. We now use a clean fire-and-forget pattern with `asyncio.ensure_future` and an internal async wrapper that exposes errors via `logger.warning()` without blocking the event loop.
 
-### 🔒 v16.1.0 — Code Freeze Audit (Final Mühürleme)
-* **[Güvenlik] AST Sandbox Genişletildi:** `DynamicSkillSynthesizer`'ın AST doğrulayıcısı güncellendi. Daha önce yalnızca `eval`/`exec` fonksiyon çağrıları engelleniyordu; bu açık `os.system()`, `subprocess.run()`, `subprocess.Popen()`, `subprocess.call()`, `subprocess.check_output()` ve benzeri shell erişimi sağlayan attribute metodlarının da silahlı kod içinde kullanılmasına izin veriyordu. Tüm bu metodlar artık AST düzeyinde `SecurityViolationError` ile Fail-Fast prensibiyle engellenir.
-* **[Async] AdaptiveLearner Event-Loop Zehirlenmesi Giderildi:** `_save_strategies()` fonksiyonu, `record_success()` ve `record_failure()` aracılığıyla async bağlamdan direkt çağrılıyordu; bu durum `open()` + `json.dump()` ile event-loop'u blokluyordu. Yeni `_schedule_save()` metodu eklendi: event loop aktifken I/O otomatik olarak `run_in_executor` ile thread pool'a atılır, yoksa senkron çalışır.
-* **[Fail-Fast] Sessiz Hata Yutma Kapatıldı:** `_save_strategies()` disk yazma hataları `logger.debug()` (görünmez) yerine artık `logger.error()` ile raporlanır. `_load_strategies()` genel `Exception` yakalayıcısı `JSONDecodeError` ve genel hatalar olarak ayrıştırılarak hata sınıfı netleştirildi.
-* **[Async] Semantic Router Unawaited Future Kapatıldı:** `route()` metodu içindeki `run_in_executor` çağrısı await edilmeden bırakılıyor ve oluşan hatalar `except: pass` ile yutuluyordu. Şimdi `asyncio.ensure_future` + iç async wrapper ile hataları `logger.warning()` aracılığıyla yüzeye taşıyan, event-loop'u bloklamayan temiz bir fire-and-forget pattern kullanılmaktadır.
+---
 
-### 🌟 v16.0.0 — The AGI Update: Dynamic Skill Synthesizer (Güncel)
-* **Kendi Aracını Yazma (Tool Synthesis):** Sistem artık bilmediği bir görevle karşılaştığında pes etmiyor. LLM'i kullanarak o işi yapacak asenkron bir Python kodu (`BaseTool` miras alan) sentezler, `tools/dynamic_skills/` klasörüne kaydeder ve sistemi yeniden başlatmadan (Hot-Reload) `ToolRegistry`'ye enjekte ederek anında çalıştırır.
-* **AST Tabanlı Güvenlik Sandbox'ı:** LLM'in ürettiği kodların sistemi ele geçirmesini önlemek adına (Security Vulnerability), kodlar çalıştırılmadan önce *Abstract Syntax Tree (AST)* ile taranır. `eval`, `exec` gibi tehlikeli fonksiyonlar ve izin verilmeyen (whitelist dışı) modül import'ları anında engellenerek Fail-Fast prensibiyle sistemin çökmesi önlenir.
-* **Tam Asenkron İzolasyon:** Dinamik kod üretimi, disk yazma ve dinamik modül import (`importlib`) işlemleri tamamen `run_in_executor` arkasına alınarak J.A.R.V.I.S'in event-loop'unu mikrosaniye dahi bloklamaması sağlandı.
+## 📜 Changelog
+
+### 🔒 v16.1.0 — Code Freeze Audit
+* **[Security] Extended AST Sandbox:** Updated `DynamicSkillSynthesizer` AST verification to block shell-executing attributes/methods (e.g., `os.system()`, `subprocess.*`) in generated code with `SecurityViolationError`.
+* **[Async] Fixed AdaptiveLearner Event-Loop Poisoning:** Shifted file write I/O in `_save_strategies()` to a thread pool using `run_in_executor` when the event loop is active.
+* **[Fail-Fast] Disabled Silent Exception Swallowing:** Replaced silent logging with explicit `logger.error()` reports and refined exception handling during strategy loading.
+* **[Async] Resolved Unawaited Future in Semantic Router:** Wrapped unawaited executor calls in a clean async pattern using `asyncio.ensure_future` to safely bubble up warnings via `logger.warning()`.
+
+### 🌟 v16.0.0 — The AGI Update: Dynamic Skill Synthesizer
+* **Tool Synthesis (Build Your Own Tool):** The system no longer gives up when facing an unknown task. Using the LLM, it synthesizes asynchronous Python code (inheriting from `BaseTool`) that executes the task, saves it in the `tools/dynamic_skills/` directory, and injects it into the `ToolRegistry` via Hot-Reload without needing to restart the system.
+* **AST-Based Security Sandbox:** To prevent LLM-generated code from taking over the system (Security Vulnerability), generated code is scanned using the *Abstract Syntax Tree (AST)* before execution. Dangerous functions like `eval` and `exec`, as well as non-whitelisted module imports, are blocked immediately, preventing system crashes under the Fail-Fast principle.
+* **Full Asynchronous Isolation:** Dynamic code generation, disk writing, and dynamic module import (`importlib`) operations are fully placed behind `run_in_executor`, ensuring J.A.R.V.I.S.'s event loop is not blocked for even a microsecond.
 
 ### 🚀 v15.0.0 — Autonomous Self-Learning Loop (Dynamic Embedding Cache)
-* **Kendi Kendini Eğiten Yönlendirici (Self-Learning Router):** Semantic Router, `Dynamic Embedding Cache` ile entegre edildi. Sistem bilemediği (Confidence < %65) komutları LLM'e devrettikten sonra, başarılı bir şekilde çalışan komutları ve argümanlarını (`Kullanıcı Cümlesi -> Tool Tag + Args`) lokal bir JSON veritabanına asenkron I/O mimarisiyle kaydeder.
-* **Akıllı Budama (Pruning) ve RAM Kontrolü:** Otonom cache limiti 1000 komutla sınırlandırıldı. Kapasite dolduğunda "Least-Recently Used / Least Frequently Used" mantığı ile en az değer taşıyan vektörler otomatik olarak budanır, bu sayede RAM ve Disk şişmesi önlenir.
-* **Fail-Fast (Hızlı Çökme) Prensibi Entegrasyonu:** Tüm veri yükleme aşamaları sahte `except: pass` bloklarından arındırılarak bozuk veri durumunda sistemin direkt çökerek anında tepki vermesi sağlandı.
+* **Self-Learning Router:** The Semantic Router is now integrated with the `Dynamic Embedding Cache`. After delegating unknown commands (Confidence < 65%) to the LLM, the system saves successfully executed commands and their arguments (`User Sentence -> Tool Tag + Args`) to a local JSON database using an asynchronous I/O architecture.
+* **Smart Pruning and RAM Control:** The autonomous cache size is capped at 1000 commands. Once the capacity is reached, the least valuable vectors are automatically pruned using Least-Recently Used / Least-Frequently Used (LRU/LFU) logic, preventing RAM and Disk bloat.
+* **Fail-Fast Integration:** All data-loading phases are purged of fake `except: pass` blocks, ensuring the system crashes directly in case of corrupted data to provide immediate feedback.
 
-### 🧠 v14.0.0 — Lokal Semantic Router (Zero-Latency Yönlendirme)
-* **LLM Bağımsız (Zero-Cost) Yönlendirme:** Spagetti (Karmaşık If/Else ve Regex yığını) kodlarına sahip olan eski `AutonomousToolRouter` sistemden tamamen silindi! Yerine saf makine öğrenmesi tabanlı (`scikit-learn` TF-IDF ve Cosine Similarity) **`SemanticRouter`** entegre edildi.
-* **Milisaniyelik Yanıt Süresi:** Basit ve net komutlar ("Google'ı aç", "PC'yi kapat", "Müziği durdur"), LLM'e (GroqBrain) gitmek yerine *lokal vektör uzayında milisaniyeler içinde eşleştirilir ve doğrudan çalıştırılır.*
-* **Ambiguity Gate (Akıllı Güvenlik Kapısı):** Router güven skoru %65'in altındaysa (yani komut karmaşıksa) sistem komutu otomatik olarak LLM'e (GroqBrain) Fallback (devir) yapar. LLM sadece gerçekten zeka gerektiren görevler için kullanılır.
+### 🧠 v14.0.0 — Local Semantic Router (Zero-Latency Routing)
+* **LLM-Independent (Zero-Cost) Routing:** The old `AutonomousToolRouter` with its complex spaghetti code (heavily nested If/Else and Regex) was completely removed! It is replaced by a pure machine learning-based `SemanticRouter` using `scikit-learn` TF-IDF and Cosine Similarity.
+* **Millisecond Response Time:** Simple and clear commands (e.g., "Open Google", "Shut down PC", "Stop music") are matched in the local vector space in milliseconds and executed directly, without hitting the LLM (GroqBrain).
+* **Ambiguity Gate:** If the router confidence score is below 65% (indicating a complex command), the system automatically falls back to the LLM (GroqBrain). The LLM is used only for tasks that actually require cognitive intelligence.
 
-### 🛡️ v13.3.0 — Kurumsal "Fail-Fast & Async" Mimari Güncellemesi
-* **Fail-Fast (Hızlı Çökme) Prensibi:** `core/brain.py` ve `core/engine.py` modüllerindeki bağlantı testlerinde amatörce hata yutan `except: pass` mantığı tamamen silindi. API veya model hataları durumunda sistem kısıtlı modda çalışmak yerine, kurumsal standartlarda dürüstçe çöker ve kullanıcıya net bir log (`SystemError`) döndürür.
-* **Async Uyum & Darboğaz (Bottleneck) Çözümü:** Başlangıçta dosya okuma (I/O) işlemlerinin `event-loop`'u blokladığı bir vizyonsuzluk tespit edildi (`_check_startup_reminders`). Tüm I/O işlemleri kurumsal asenkron standartlarına çekilerek `run_in_executor` ile Event-Loop zehirlenmesinden kurtarıldı.
-* **Hata Ayıklama Yeteneği Artırıldı:** Sistem çöktüğünde üretilen loglar, sorunun nerede (API mi, model mi, internet mi) kaynaklandığını netleştiren detaylara kavuştu.
+### 🛡️ v13.3.0 — Enterprise-Grade "Fail-Fast & Async" Architecture Update
+* **Fail-Fast Principle:** In the connection checks of the `core/brain.py` and `core/engine.py` modules, the amateurish `except: pass` exception swallowing logic was completely removed. In case of API or model errors, instead of running in a limited mode, the system crashes honestly according to enterprise standards and returns a clear log (`SystemError`) to the user.
+* **Async Alignment & Bottleneck Resolutions:** Discovered blocking I/O operations (file reads) in the event loop during startup (`_check_startup_reminders`). All startup I/O processes have been converted to enterprise async standards, offloading them using `run_in_executor` to prevent Event Loop poisoning.
+* **Enhanced Debugging Capability:** Logs produced upon system crashes are enriched with details that clearly point out where the issue originated (API, model, or network).
 
 
 
