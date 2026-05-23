@@ -179,15 +179,24 @@ class SemanticRouter:
                     
                 logger.info(f"Router: Dynamic Embedding Match → {best_tag} (Skor: {best_score:.3f})")
                 
-                # Arka planda kullanım istatistiğini güncelle
+                # Arka planda kullanım istatistiğini güncelle (Audit Fix: hataları logla)
                 def _update_stats():
                     if matched_phrase in self.learned_data:
                         self.learned_data[matched_phrase]["use_count"] += 1
                         self.learned_data[matched_phrase]["last_used"] = time.time()
                 try:
-                    asyncio.get_running_loop().run_in_executor(None, _update_stats)
-                except Exception:
-                    pass
+                    loop = asyncio.get_running_loop()
+
+                    async def _run_stats_update():
+                        try:
+                            await loop.run_in_executor(None, _update_stats)
+                        except Exception as _e:
+                            logger.warning(f"Router istatistik güncelleme hatası: {_e}")
+
+                    asyncio.ensure_future(_run_stats_update())
+                except RuntimeError:
+                    # Event loop yok — direkt çalıştır
+                    _update_stats()
                 
                 return RouteMatch(
                     tool_tag=best_tag,

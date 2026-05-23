@@ -1,11 +1,12 @@
 """
-[V16.0] Dynamic Skill Synthesizer
+[V16.1] Dynamic Skill Synthesizer
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LLM'i kullanarak çalışma zamanında yeni araçlar (Tools) sentezler.
 Yazılan araçlar tools/dynamic_skills/ içerisine kaydedilir ve anında registry'ye eklenir.
 
 Özellikler:
 - AST tabanlı Sandbox (Kötü niyetli modül importlarını engeller)
+- [V16.1 Audit] os.system / subprocess.* gibi shell erişim metodları AST'ta da engellenir
 - Asenkron dosya I/O ve import (Event-loop'u bloklamaz)
 - Kusursuz Fail-Fast hata yakalama zırhı
 """
@@ -66,6 +67,22 @@ class DynamicSkillSynthesizer:
                 if isinstance(node.func, ast.Name):
                     if node.func.id in ['eval', 'exec']:
                         raise SecurityViolationError(f"Güvenlik İhlali: '{node.func.id}' fonksiyonu kullanılamaz.")
+
+                # os.system(), os.popen(), subprocess.run(), subprocess.Popen() vb. yasak
+                # [V16.1 AUDIT FIX] ALLOWED_MODULES'de os/subprocess olsa dahi
+                # shell komutuna doğrudan erişim sağlayan tehlikeli metodlar engellenir.
+                if isinstance(node.func, ast.Attribute):
+                    _BANNED_ATTR_CALLS = {
+                        'system', 'popen',         # os.system(), os.popen()
+                        'run', 'call', 'Popen',    # subprocess.run/call/Popen
+                        'check_output',            # subprocess.check_output
+                        'check_call',              # subprocess.check_call
+                        'getoutput', 'getstatusoutput',  # subprocess.getoutput
+                    }
+                    if node.func.attr in _BANNED_ATTR_CALLS:
+                        raise SecurityViolationError(
+                            f"Güvenlik İhlali: '{node.func.attr}' çağrısı shell erişimi sağladığı için kullanılamaz."
+                        )
         return True
 
     def _write_and_import(self, tool_tag: str, code: str) -> Optional[BaseTool]:

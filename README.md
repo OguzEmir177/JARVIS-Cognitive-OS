@@ -14,6 +14,12 @@ Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down
 
 ## 📜 Changelog / Güncelleme Geçmişi
 
+### 🔒 v16.1.0 — Code Freeze Audit (Final Mühürleme)
+* **[Güvenlik] AST Sandbox Genişletildi:** `DynamicSkillSynthesizer`'ın AST doğrulayıcısı güncellendi. Daha önce yalnızca `eval`/`exec` fonksiyon çağrıları engelleniyordu; bu açık `os.system()`, `subprocess.run()`, `subprocess.Popen()`, `subprocess.call()`, `subprocess.check_output()` ve benzeri shell erişimi sağlayan attribute metodlarının da silahlı kod içinde kullanılmasına izin veriyordu. Tüm bu metodlar artık AST düzeyinde `SecurityViolationError` ile Fail-Fast prensibiyle engellenir.
+* **[Async] AdaptiveLearner Event-Loop Zehirlenmesi Giderildi:** `_save_strategies()` fonksiyonu, `record_success()` ve `record_failure()` aracılığıyla async bağlamdan direkt çağrılıyordu; bu durum `open()` + `json.dump()` ile event-loop'u blokluyordu. Yeni `_schedule_save()` metodu eklendi: event loop aktifken I/O otomatik olarak `run_in_executor` ile thread pool'a atılır, yoksa senkron çalışır.
+* **[Fail-Fast] Sessiz Hata Yutma Kapatıldı:** `_save_strategies()` disk yazma hataları `logger.debug()` (görünmez) yerine artık `logger.error()` ile raporlanır. `_load_strategies()` genel `Exception` yakalayıcısı `JSONDecodeError` ve genel hatalar olarak ayrıştırılarak hata sınıfı netleştirildi.
+* **[Async] Semantic Router Unawaited Future Kapatıldı:** `route()` metodu içindeki `run_in_executor` çağrısı await edilmeden bırakılıyor ve oluşan hatalar `except: pass` ile yutuluyordu. Şimdi `asyncio.ensure_future` + iç async wrapper ile hataları `logger.warning()` aracılığıyla yüzeye taşıyan, event-loop'u bloklamayan temiz bir fire-and-forget pattern kullanılmaktadır.
+
 ### 🌟 v16.0.0 — The AGI Update: Dynamic Skill Synthesizer (Güncel)
 * **Kendi Aracını Yazma (Tool Synthesis):** Sistem artık bilmediği bir görevle karşılaştığında pes etmiyor. LLM'i kullanarak o işi yapacak asenkron bir Python kodu (`BaseTool` miras alan) sentezler, `tools/dynamic_skills/` klasörüne kaydeder ve sistemi yeniden başlatmadan (Hot-Reload) `ToolRegistry`'ye enjekte ederek anında çalıştırır.
 * **AST Tabanlı Güvenlik Sandbox'ı:** LLM'in ürettiği kodların sistemi ele geçirmesini önlemek adına (Security Vulnerability), kodlar çalıştırılmadan önce *Abstract Syntax Tree (AST)* ile taranır. `eval`, `exec` gibi tehlikeli fonksiyonlar ve izin verilmeyen (whitelist dışı) modül import'ları anında engellenerek Fail-Fast prensibiyle sistemin çökmesi önlenir.

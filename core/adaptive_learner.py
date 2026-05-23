@@ -19,6 +19,7 @@ Architecture:
     └── LLM Fallback (asks brain for unknown commands)
 """
 
+import asyncio
 import json
 import os
 import time
@@ -115,7 +116,7 @@ class AdaptiveLearner:
             )
         
         self._prune_strategies()
-        self._save_strategies()
+        self._schedule_save()
         logger.info(f"[ÖĞRENME] Strateji kaydedildi: '{key}' → {tools_used}")
 
     def record_failure(self, user_input: str, tools_used: List[str]) -> None:
@@ -126,7 +127,7 @@ class AdaptiveLearner:
             self.strategies[key].failure_count += 1
             self.strategies[key].last_used = time.time()
             self._prune_strategies()
-            self._save_strategies()
+            self._schedule_save()
             logger.info(f"[ÖĞRENME] Başarısız strateji kaydedildi: '{key}' (failures={self.strategies[key].failure_count})")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -338,7 +339,7 @@ class AdaptiveLearner:
             self.strategies = {s.command_pattern: s for s in sorted_strats[:max_strategies]}
 
     def _load_strategies(self) -> None:
-        """Strateji veritabanını dosyadan yükler."""
+        """Strateji veritabanını dosyadan yükler (Fail-Fast)."""
         try:
             if os.path.exists(STRATEGY_DB_PATH):
                 with open(STRATEGY_DB_PATH, 'r', encoding='utf-8') as f:
@@ -346,11 +347,13 @@ class AdaptiveLearner:
                     for key, sdata in data.items():
                         self.strategies[key] = LearnedStrategy(**sdata)
                 logger.info(f"[ÖĞRENME] {len(self.strategies)} strateji yüklendi.")
+        except json.JSONDecodeError as e:
+            logger.error(f"[ÖĞRENME] Strateji DB bozuk (JSON hatası): {e} — Temiz başlıyor.")
         except Exception as e:
-            logger.warning(f"[ÖĞRENME] Strateji yükleme hatası: {e}")
+            logger.error(f"[ÖĞRENME] Strateji yükleme kritik hatası: {e}")
 
     def _save_strategies(self) -> None:
-        """Strateji veritabanını dosyaya kaydeder."""
+        """Strateji veritabanını dosyaya kaydeder (senkron — run_in_executor ile çağırılmalı)."""
         try:
             os.makedirs(os.path.dirname(STRATEGY_DB_PATH), exist_ok=True)
             data = {}
@@ -359,4 +362,19 @@ class AdaptiveLearner:
             with open(STRATEGY_DB_PATH, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            logger.debug(f"[ÖĞRENME] Strateji kaydetme hatası: {e}")
+            # debug→error: Disk yazma hatalarını asla sessizce yutma (Fail-Fast prensibi)
+            logger.error(f"[ÖĞRENME] Strateji kaydetme HATASI: {e}")
+
+    def _schedule_save(self) -> None:
+        """
+        [V14.1] Async-Safe Disk Yazma Zamanlayıcısı.
+        Event loop varsa I/O'yu ThreadPool'a atar (event-loop bloklamasını önler).
+        Loop yoksa (test/startup) direkt senkron çalışır.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+            # Async bağlamda: I/O'yu thread pool'a at
+            loop.run_in_executor(None, self._save_strategies)
+        except RuntimeError:
+            # Event loop yok (ör: test ortamı, __init__) — senkron yaz
+            self._save_strategies()
