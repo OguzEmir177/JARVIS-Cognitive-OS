@@ -1,4 +1,4 @@
-# 🧠 J.A.R.V.I.S. v16.1.0 — Autonomous Cognitive OS & Agent Architecture 🚀
+# 🧠 J.A.R.V.I.S. v16.2.0 — Autonomous Cognitive OS & Agent Architecture 🚀
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 [![Asyncio Core](https://img.shields.io/badge/Asynchronous-Core-FF6F00?style=for-the-badge&logo=cpu&logoColor=white)](https://docs.python.org/3/library/asyncio.html)
@@ -12,17 +12,22 @@ Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down
 
 ---
 
-## ✨ Latest Release (v16.1.0)
+## ✨ Latest Release (v16.2.0)
 > [!IMPORTANT]
-> **Code Freeze Audit — Security & Async Hardening**
-> * **[Security] Extended AST Sandbox:** The AST validator of `DynamicSkillSynthesizer` has been updated. Previously, only `eval`/`exec` function calls were blocked, which allowed access to shell-executing attributes/methods like `os.system()`, `subprocess.run()`, `subprocess.Popen()`, `subprocess.call()`, `subprocess.check_output()`, and similar methods inside synthesized code. All of these methods are now blocked at the AST level using `SecurityViolationError` under the Fail-Fast principle.
-> * **[Async] Fixed AdaptiveLearner Event-Loop Poisoning:** The `_save_strategies()` function was called directly from the async context via `record_success()` and `record_failure()`, blocking the event loop with `open()` + `json.dump()`. Added a new `_schedule_save()` method: when the event loop is active, I/O is automatically delegated to a thread pool via `run_in_executor`, otherwise running synchronously.
-> * **[Fail-Fast] Disabled Silent Exception Swallowing:** Disk write errors in `_save_strategies()` are now reported via `logger.error()` instead of `logger.debug()` (which was invisible). The generic `Exception` handler in `_load_strategies()` was split into `JSONDecodeError` and generic errors to clarify the error class.
-> * **[Async] Resolved Unawaited Future in Semantic Router:** The `run_in_executor` call inside the `route()` method was left unawaited, and any resulting errors were swallowed via `except: pass`. We now use a clean fire-and-forget pattern with `asyncio.ensure_future` and an internal async wrapper that exposes errors via `logger.warning()` without blocking the event loop.
+> **Post-Audit Hardening, Optimization & 1-Click Installer**
+> * **[Security] Un-bypassable AST Sandbox:** Enhanced AST validation of `DynamicSkillSynthesizer` to block all potential sandbox escape vectors. Direct built-in manipulation (`__import__`, `getattr`, `setattr`, `globals`, `locals`, `compile`) and dunder attributes (`__builtins__`, `__dict__`, `__class__`, etc.) are now strictly blocked. Validation runs entirely asynchronous in a thread pool to avoid blocking the event loop.
+> * **[Optimizations] Memory Leak Fix & Semantic Routing Threshold:** Addressed a critical memory leak in `SemanticRouter` during TF-IDF vector pruning (previously leaving obsolete elements in lists). Relocated heavy TF-IDF matrix refitting to `run_in_executor`. Expanded confidence routing; scores between `0.30 <= score < 0.65` now match with `is_forced=False`, keeping the local matching speed while leaving final validation to the cognitive LLM, rather than dropping them entirely.
+> * **[Installer] 1-Click System Setup (`install.bat`):** Added a new, fully automated 7-step installer for Windows systems. It sets up Python `venv`, fetches and configures FFmpeg, manages `.env` and `contacts.json` configs, installs requirements, and places a pre-configured J.A.R.V.I.S. shortcut on the desktop.
 
 ---
 
 ## 📜 Changelog
+
+### 🚀 v16.2.0 — Post-Audit Hardening & 1-Click Installer
+* **[Security] Un-bypassable AST Sandbox:** Strengthened dynamic skill synthesis security by blocking dunder elements (`__builtins__`, `__dict__`) and core utilities (`__import__`, `getattr`, `setattr`, etc.). Moved AST security scans to async threads.
+* **[Optimizations] Async Vector Re-Fitting & Pruning Leak:** Fixed an index shifting memory leak in local `SemanticRouter` dynamic cache pruning. Vector space matrix calculations are now executed asynchronously to prevent blocking the event loop.
+* **[Optimizations] Smart Router Threshold:** Re-calibrated local confidence scoring where scores between `0.30` and `0.65` fall back to the LLM gracefully as soft matches (`is_forced=False`), maximizing vector utility while ensuring cognitive fallback.
+* **[Installer] 1-Click Setup (`install.bat`):** Shipped a full 7-step installer that automates virtual environment setup, local FFmpeg downloads/extracts, and generates desktop shortcuts.
 
 ### 🔒 v16.1.0 — Code Freeze Audit
 * **[Security] Extended AST Sandbox:** Updated `DynamicSkillSynthesizer` AST verification to block shell-executing attributes/methods (e.g., `os.system()`, `subprocess.*`) in generated code with `SecurityViolationError`.

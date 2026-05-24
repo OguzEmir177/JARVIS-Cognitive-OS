@@ -106,6 +106,7 @@ class SemanticRouter:
         def _update_and_write():
             os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
             
+            pruned_key = None
             if user_input in self.learned_data:
                 self.learned_data[user_input]["use_count"] += 1
                 self.learned_data[user_input]["last_used"] = time.time()
@@ -125,28 +126,45 @@ class SemanticRouter:
                         self.learned_data.keys(), 
                         key=lambda k: (self.learned_data[k]["use_count"], self.learned_data[k]["last_used"])
                     )
-                    least_used_key = sorted_keys[0]
-                    del self.learned_data[least_used_key]
-                    logger.info(f"Otonom Cache Limiti Aşıldı: '{least_used_key}' budandı (pruned).")
+                    pruned_key = sorted_keys[0]
+                    del self.learned_data[pruned_key]
+                    logger.info(f"Otonom Cache Limiti Aşıldı: '{pruned_key}' budandı (pruned).")
                     
             # Fail-fast disk yazma (hata yutulmaz)
             with open(self.cache_path, "w", encoding="utf-8") as f:
                 json.dump(self.learned_data, f, ensure_ascii=False, indent=2)
             
-            return True
+            return True, pruned_key
 
         # I/O İşlemini ThreadPool'a atarak event loop bloklamasını engelle
         loop = asyncio.get_running_loop()
-        success = await loop.run_in_executor(None, _update_and_write)
+        try:
+            success, pruned_key = await loop.run_in_executor(None, _update_and_write)
+        except Exception as e:
+            logger.error(f"Cache yazma hatası: {e}")
+            return
         
         if success:
             logger.info(f"Otonom Öğrenme Başarılı: '{user_input}' -> {tool_tag} (Args: {arguments})")
             
-            # RAM'deki vektörleri anında senkronize et
+            needs_refit = False
+            
+            # RAM'deki vektörleri anında senkronize et (Silinenleri çıkar)
+            if pruned_key and pruned_key in self.corpus:
+                idx = self.corpus.index(pruned_key)
+                self.corpus.pop(idx)
+                self.tags.pop(idx)
+                needs_refit = True
+                
+            # Yeni öğrenileni ekle
             if user_input not in self.corpus:
                 self.tags.append(tool_tag)
                 self.corpus.append(user_input)
-                self.tfidf_matrix = self.vectorizer.fit_transform(self.corpus)
+                needs_refit = True
+                
+            if needs_refit:
+                # CPU-bound işlem olduğu için asenkron yürüt
+                self.tfidf_matrix = await loop.run_in_executor(None, self.vectorizer.fit_transform, self.corpus)
 
     def route(self, user_input: str, world_context: Dict[str, Any] = None, context: Dict[str, Any] = None) -> Optional[RouteMatch]:
         """Komutu vektör uzayında test eder."""
@@ -159,26 +177,29 @@ class SemanticRouter:
         best_index = int(np.argmax(similarities))
         best_score = float(similarities[best_index])
         
-        if best_score < 0.2:
+        if best_score < 0.30:
             return None
             
         best_tag = self.tags[best_index]
         matched_phrase = self.corpus[best_index]
         
-        if best_score > 0.65:
-            # 1. Dinamik Öğrenilmiş Cache Eşleşmesi
-            if matched_phrase in self.learned_data:
-                cached_args = self.learned_data[matched_phrase].get("arguments", {})
-                params = {"query": user_input}
+        # 0.65 üstü "Forced" (Kesin) kabul edilir, 0.30-0.65 arası LLM'e onay/ipucu için (is_forced=False) bırakılır.
+        is_forced_match = best_score >= 0.65
+        
+        # 1. Dinamik Öğrenilmiş Cache Eşleşmesi
+        if matched_phrase in self.learned_data:
+            cached_args = self.learned_data[matched_phrase].get("arguments", {})
+            params = {"query": user_input}
+            
+            if isinstance(cached_args, dict):
+                params.update(cached_args)
+            elif isinstance(cached_args, str):
+                params["learned_arg"] = cached_args
+                params["query"] = cached_args 
                 
-                if isinstance(cached_args, dict):
-                    params.update(cached_args)
-                elif isinstance(cached_args, str):
-                    params["learned_arg"] = cached_args
-                    params["query"] = cached_args 
-                    
-                logger.info(f"Router: Dynamic Embedding Match → {best_tag} (Skor: {best_score:.3f})")
-                
+            logger.info(f"Router: Dynamic Embedding Match → {best_tag} (Skor: {best_score:.3f}, Forced: {is_forced_match})")
+            
+            if is_forced_match:
                 # Arka planda kullanım istatistiğini güncelle (Audit Fix: hataları logla)
                 def _update_stats():
                     if matched_phrase in self.learned_data:
@@ -198,35 +219,32 @@ class SemanticRouter:
                     # Event loop yok — direkt çalıştır
                     _update_stats()
                 
-                return RouteMatch(
-                    tool_tag=best_tag,
-                    params=params,
-                    confidence=best_score,
-                    is_forced=True,
-                    reasoning=f"Dynamic Cache Match (Score: {best_score:.3f})"
-                )
-                
-            # 2. Statik Kelime Grubu Eşleşmesi
-            query = user_input.lower()
-            phrases_to_remove = self.tool_definitions.get(best_tag, [])
-            for phrase in phrases_to_remove:
-                if phrase in query:
-                    query = query.replace(phrase, "").strip()
-                    
-            if not query:
-                query = user_input
-                
-            logger.info(f"Router: Statik Vektör Eşleşmesi → {best_tag} (Skor: {best_score:.3f})")
             return RouteMatch(
-                tool_tag=best_tag, 
-                params={"query": query}, 
-                confidence=best_score, 
-                is_forced=True, 
-                reasoning=f"Static Cosine Similarity (Score: {best_score:.3f})"
+                tool_tag=best_tag,
+                params=params,
+                confidence=best_score,
+                is_forced=is_forced_match,
+                reasoning=f"Dynamic Cache Match (Score: {best_score:.3f})"
             )
             
-        logger.info(f"Router: Skor yetersiz ({best_score:.3f} < 0.65) → LLM Fallback (GroqBrain devrede)")
-        return None
+        # 2. Statik Kelime Grubu Eşleşmesi
+        query = user_input.lower()
+        phrases_to_remove = self.tool_definitions.get(best_tag, [])
+        for phrase in phrases_to_remove:
+            if phrase in query:
+                query = query.replace(phrase, "").strip()
+                
+        if not query:
+            query = user_input
+            
+        logger.info(f"Router: Statik Vektör Eşleşmesi → {best_tag} (Skor: {best_score:.3f}, Forced: {is_forced_match})")
+        return RouteMatch(
+            tool_tag=best_tag, 
+            params={"query": query}, 
+            confidence=best_score, 
+            is_forced=is_forced_match, 
+            reasoning=f"Static Cosine Similarity (Score: {best_score:.3f})"
+        )
 
     def get_tool_stats(self) -> Dict[str, Any]:
         return {

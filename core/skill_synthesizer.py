@@ -62,10 +62,9 @@ class DynamicSkillSynthesizer:
                     if node.module not in ALLOWED_MODULES and base_module not in ALLOWED_MODULES:
                         raise SecurityViolationError(f"Güvenlik İhlali: '{node.module}' modülü import edilemez.")
                         
-            # eval, exec kullanımı yasak
             if isinstance(node, ast.Call):
                 if isinstance(node.func, ast.Name):
-                    if node.func.id in ['eval', 'exec']:
+                    if node.func.id in ['eval', 'exec', '__import__', 'getattr', 'setattr', 'globals', 'locals', 'compile']:
                         raise SecurityViolationError(f"Güvenlik İhlali: '{node.func.id}' fonksiyonu kullanılamaz.")
 
                 # os.system(), os.popen(), subprocess.run(), subprocess.Popen() vb. yasak
@@ -83,6 +82,15 @@ class DynamicSkillSynthesizer:
                         raise SecurityViolationError(
                             f"Güvenlik İhlali: '{node.func.attr}' çağrısı shell erişimi sağladığı için kullanılamaz."
                         )
+
+            # __builtins__ ve diğer kritik dunder özellikleri engelle
+            if isinstance(node, ast.Attribute):
+                if node.attr in ['__builtins__', '__dict__', '__class__', '__bases__', '__subclasses__']:
+                    raise SecurityViolationError(f"Güvenlik İhlali: '{node.attr}' özelliğine erişim yasaktır.")
+            if isinstance(node, ast.Name):
+                if node.id in ['__builtins__', '__dict__', '__class__', '__bases__', '__subclasses__']:
+                    raise SecurityViolationError(f"Güvenlik İhlali: '{node.id}' özelliğine erişim yasaktır.")
+                    
         return True
 
     def _write_and_import(self, tool_tag: str, code: str) -> Optional[BaseTool]:
@@ -163,11 +171,11 @@ class DynamicSkillSynthesizer:
                 logger.warning("LLM boş kod döndürdü.")
                 return False
                 
-            # 1. AST Sandbox Kontrolü
-            self._validate_code_security(code)
+            # 1. AST Sandbox Kontrolü & I/O İşlemi (Asenkron)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._validate_code_security, code)
             
             # 2. I/O ve Import İşlemini Arka Planda (Asenkron) Yap
-            loop = asyncio.get_running_loop()
             tool_instance = await loop.run_in_executor(None, self._write_and_import, suggested_tag, code)
             
             if tool_instance:
