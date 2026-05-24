@@ -197,6 +197,11 @@ Before upgrading to a new version of J.A.R.V.I.S., always back up the following 
 
 ---
 
+## 🌌 Connected Projects & Sister Ecosystems
+If you like **J.A.R.V.I.S.**, make sure to check out my other advanced ecosystem:
+* **[YT Analiz Pro - SaaS Edition](https://github.com/oguzemirtopuz/YouTube-Analiz-Uygulamasi-Saas-Edition):** A full-stack YouTube Growth Ecosystem combining a Python FastAPI/OpenCV Desktop App with a Viral Cloning Chrome Extension. Features advanced Multi-Agent Debate for hook generation and custom NLP Chaos Metrics! 🚀
+
+---
 ## 👤 About the Developer
 
 This project is developed by **Oğuz Emir Topuz**.
