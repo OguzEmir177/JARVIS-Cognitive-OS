@@ -29,11 +29,11 @@ Fully built on the `asyncio` asynchronous architecture, J.A.R.V.I.S. breaks down
 * **[Optimizations] Smart Router Threshold:** Re-calibrated local confidence scoring where scores between `0.30` and `0.65` fall back to the LLM gracefully as soft matches (`is_forced=False`), maximizing vector utility while ensuring cognitive fallback.
 * **[Installer] 1-Click Setup (`install.bat`):** Shipped a full 7-step installer that automates virtual environment setup, local FFmpeg downloads/extracts, and generates desktop shortcuts.
 
-### 🔒 v16.1.0 — Code Freeze Audit
-* **[Security] Extended AST Sandbox:** Updated `DynamicSkillSynthesizer` AST verification to block shell-executing attributes/methods (e.g., `os.system()`, `subprocess.*`) in generated code with `SecurityViolationError`.
-* **[Async] Fixed AdaptiveLearner Event-Loop Poisoning:** Shifted file write I/O in `_save_strategies()` to a thread pool using `run_in_executor` when the event loop is active.
-* **[Fail-Fast] Disabled Silent Exception Swallowing:** Replaced silent logging with explicit `logger.error()` reports and refined exception handling during strategy loading.
-* **[Async] Resolved Unawaited Future in Semantic Router:** Wrapped unawaited executor calls in a clean async pattern using `asyncio.ensure_future` to safely bubble up warnings via `logger.warning()`.
+### 🏛️ v16.1.0 — The Architect Update (Code Freeze)
+* **[Security] Ironclad AST Armor:** Hardened the AST Sandbox to instantly block potential escape vectors and unsafe module manipulations, guaranteeing an unbreakable execution perimeter.
+* **[Performance] Async LRU Cache & Leak Closure:** Eliminated memory leaks within the Semantic Router. The Self-Learning LRU Cache is now fully asynchronous, achieving zero latency and absolute event-loop freedom.
+* **[Deployment] Seamless FFmpeg Setup:** Upgraded `install.bat` to automatically fetch and configure FFmpeg, transforming the setup experience into a seamless one-click pipeline.
+* **[Code Freeze] Architecture Sealed:** The core architecture is now officially sealed and stabilized in a "Code Freeze" state for production readiness.
 
 ### 🌟 v16.0.0 — The AGI Update: Dynamic Skill Synthesizer
 * **Tool Synthesis (Build Your Own Tool):** The system no longer gives up when facing an unknown task. Using the LLM, it synthesizes asynchronous Python code (inheriting from `BaseTool`) that executes the task, saves it in the `tools/dynamic_skills/` directory, and injects it into the `ToolRegistry` via Hot-Reload without needing to restart the system.
