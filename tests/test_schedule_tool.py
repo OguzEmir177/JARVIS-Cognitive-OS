@@ -1,18 +1,16 @@
-"""
-[V9.2] ScheduleTool Test Suite
+"""[V9.2] ScheduleTool Test Suite
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Dinamik zamanlama aracı (ScheduleTool) testleri.
+Dynamic scheduling tool (ScheduleTool) tests.
 
-Test Senaryoları:
-    1. Geçerli "dakika|mesaj" formatı → scheduler.add_daily çağrılır
-    2. Pipe karakteri eksik → success=False
-    3. Negatif/sıfır dakika → success=False
-    4. Boş mesaj → success=False
-    5. Context'te scheduler yok → success=False
-    6. Smart alias çözümleme (REMINDER → SCHEDULE)
-    7. Registry entegrasyon — SCHEDULE tag kayıtlı
-    8. Sayısal olmayan dakika → success=False
-"""
+Test Scenarios:
+    1. Valid "minute|message" format → scheduler.add_daily is called
+    2. Pipe character is missing → success=False
+    3. Negative/zero minutes → success=False
+    4. Empty message → success=False
+    5. There is no scheduler in the context → success=False
+    6. Smart alias resolution (REMINDER → SCHEDULE)
+    7. Registry integration — SCHEDULE tag is registered
+    8. Non-numeric minute → success=False"""
 
 import asyncio
 import pytest
@@ -24,11 +22,11 @@ from tools.base_tool import ToolResult
 
 
 class TestScheduleToolValidInput:
-    """Geçerli giriş senaryoları."""
+    """Valid login scenarios."""
 
     @pytest.mark.asyncio
     async def test_valid_schedule_calls_add_daily(self):
-        """'5|mola ver' → scheduler.add_daily() çağrılmalı."""
+        """'5|take a break' → scheduler.add_daily() should be called."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
@@ -41,7 +39,7 @@ class TestScheduleToolValidInput:
         assert "5 dakika sonra" in result.speak
         mock_scheduler.add_daily.assert_called_once()
 
-        # add_daily argümanlarını doğrula
+        # validate add_daily arguments
         call_args = mock_scheduler.add_daily.call_args
         hour, minute, action = call_args[0]
         assert isinstance(hour, int)
@@ -50,13 +48,13 @@ class TestScheduleToolValidInput:
 
     @pytest.mark.asyncio
     async def test_valid_schedule_target_time(self):
-        """Hedef saat:dakika doğru hesaplanmalı."""
+        """Target hour:minutes must be calculated correctly."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
         before = datetime.now()
         result = await tool.execute(
-            {"reminder": "10|su iç"},
+            {"reminder": "drink 10|water"},
             engine_context={"scheduler": mock_scheduler},
         )
         after = datetime.now()
@@ -64,22 +62,22 @@ class TestScheduleToolValidInput:
         call_args = mock_scheduler.add_daily.call_args[0]
         target_hour, target_minute = call_args[0], call_args[1]
 
-        # Hedef zaman, "şu an + 10dk" civarında olmalı
+        # Target time should be around "now + 10min"
         expected_low = before + timedelta(minutes=10)
         expected_high = after + timedelta(minutes=10)
 
-        # Saat:dakika aralık kontrolü (sınır geçişleri dahil)
+        # Hour:minute interval control (including border crossings)
         assert expected_low.hour <= target_hour <= expected_high.hour or \
-               (expected_low.hour == 23 and target_hour == 0)  # gece yarısı geçişi
+               (expected_low.hour == 23 and target_hour == 0)  # midnight pass
 
     @pytest.mark.asyncio
     async def test_large_minute_value(self):
-        """Büyük dakika değeri (120 dk) kabul edilmeli."""
+        """Large minute value (120 min) should be accepted."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
         result = await tool.execute(
-            {"reminder": "120|toplantı"},
+            {"reminder": "120|meeting"},
             engine_context={"scheduler": mock_scheduler},
         )
 
@@ -88,31 +86,31 @@ class TestScheduleToolValidInput:
 
     @pytest.mark.asyncio
     async def test_message_with_turkish_chars(self):
-        """Türkçe karakter içeren mesaj doğru taşınmalı."""
+        """The message containing Turkish characters must be moved correctly."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
         result = await tool.execute(
-            {"reminder": "15|çay molası için hazırlan"},
+            {"reminder": "15|get ready for the tea break"},
             engine_context={"scheduler": mock_scheduler},
         )
 
         assert result.success is True
         action = mock_scheduler.add_daily.call_args[0][2]
-        assert "çay molası için hazırlan" in action
+        assert "get ready for tea break" in action
 
 
 class TestScheduleToolInvalidInput:
-    """Geçersiz giriş senaryoları."""
+    """Invalid login scenarios."""
 
     @pytest.mark.asyncio
     async def test_missing_pipe(self):
-        """Pipe karakteri olmayan giriş → success=False."""
+        """Input without pipe character → success=False."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
         result = await tool.execute(
-            {"reminder": "5 dakika sonra hatırlat"},
+            {"reminder": "remind me in 5 minutes"},
             engine_context={"scheduler": mock_scheduler},
         )
 
@@ -147,12 +145,12 @@ class TestScheduleToolInvalidInput:
 
     @pytest.mark.asyncio
     async def test_non_numeric_minutes(self):
-        """Sayısal olmayan dakika → success=False."""
+        """Non-numeric minute → success=False."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
         result = await tool.execute(
-            {"reminder": "beş|test"},
+            {"reminder": "five|test"},
             engine_context={"scheduler": mock_scheduler},
         )
 
@@ -160,7 +158,7 @@ class TestScheduleToolInvalidInput:
 
     @pytest.mark.asyncio
     async def test_empty_message(self):
-        """Boş mesaj → success=False."""
+        """Empty message → success=False."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
@@ -173,7 +171,7 @@ class TestScheduleToolInvalidInput:
 
     @pytest.mark.asyncio
     async def test_empty_params(self):
-        """Boş parametre → success=False."""
+        """Empty parameter → success=False."""
         tool = ScheduleTool()
 
         result = await tool.execute({}, engine_context={"scheduler": MagicMock()})
@@ -181,7 +179,7 @@ class TestScheduleToolInvalidInput:
 
     @pytest.mark.asyncio
     async def test_whitespace_only_message(self):
-        """Sadece boşluk mesajı → success=False."""
+        """Just blank message → success=False."""
         tool = ScheduleTool()
         mock_scheduler = MagicMock()
 
@@ -194,7 +192,7 @@ class TestScheduleToolInvalidInput:
 
 
 class TestScheduleToolContext:
-    """engine_context erişim senaryoları."""
+    """engine_context access scenarios."""
 
     @pytest.mark.asyncio
     async def test_no_scheduler_in_context(self):
@@ -207,7 +205,7 @@ class TestScheduleToolContext:
         )
 
         assert result.success is False
-        assert "Scheduler bulunamadı" in result.message
+        assert "Scheduler not found" in result.message
 
     @pytest.mark.asyncio
     async def test_none_context(self):
@@ -223,7 +221,7 @@ class TestScheduleToolContext:
 
 
 class TestScheduleToolMetadata:
-    """Tool metadata doğrulama."""
+    """Tool metadata verification."""
 
     def test_protocol_tag(self):
         tool = ScheduleTool()
@@ -248,13 +246,13 @@ class TestScheduleToolRegistry:
     """Registry entegrasyon testleri."""
 
     def test_schedule_registered_in_default_registry(self):
-        """SCHEDULE tag'i default registry'de olmalı."""
+        """SCHEDULE tag must be in the default registry."""
         from tools.tool_registry import create_default_registry
         registry = create_default_registry()
         assert "SCHEDULE" in registry.all_tags
 
     def test_smart_alias_reminder(self):
-        """REMINDER alias → SCHEDULE'a çözümlenmeli."""
+        """Must resolve to REMINDER alias → SCHEDULE."""
         from tools.tool_registry import create_default_registry, SMART_ALIASES
         assert SMART_ALIASES.get("REMINDER") == "SCHEDULE"
 
@@ -269,7 +267,7 @@ class TestScheduleToolRegistry:
         assert SMART_ALIASES.get("SET_TIMER") == "SCHEDULE"
 
     def test_iron_dome_passes_schedule(self):
-        """Iron Dome SCHEDULE'ı artık engellemez."""
+        """Iron Dome no longer blocks SCHEDULE."""
         from tools.tool_registry import create_default_registry
         registry = create_default_registry()
         assert registry.is_registered("SCHEDULE") is True
@@ -279,7 +277,7 @@ class TestScheduleToolBuildContext:
     """PlanExecutor._build_context scheduler enjeksiyonu."""
 
     def test_context_contains_scheduler(self):
-        """_build_context scheduler'ı içermeli (set edilmişse)."""
+        """_build_context must include the scheduler (if set)."""
         from core.plan_executor import PlanExecutor
 
         pe = PlanExecutor.__new__(PlanExecutor)
@@ -293,13 +291,13 @@ class TestScheduleToolBuildContext:
         assert ctx["scheduler"] is mock_scheduler
 
     def test_context_without_scheduler(self):
-        """scheduler atanmadıysa context'te olmamalı."""
+        """If the scheduler is not assigned, it should not be in the context."""
         from core.plan_executor import PlanExecutor
 
         pe = PlanExecutor.__new__(PlanExecutor)
         pe.last_whatsapp_num = None
         pe.last_whatsapp_time = 0
-        # scheduler atanmadı
+        # scheduler not assigned
 
         ctx = pe._build_context({})
         assert "scheduler" not in ctx

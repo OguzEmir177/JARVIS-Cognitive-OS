@@ -16,11 +16,9 @@ def plan_executor():
 
 @pytest.mark.asyncio
 async def test_logic_shield_vision_before_search(plan_executor):
-    """
-    Senaryo 1: VISION, SEARCH'ten ÖNCE geliyorsa (meşru senaryo).
-    Kullanıcı ekrana bakıp not alıp araştırma yapıp göndermek istiyor.
-    VISION atlanmamalı.
-    """
+    """Scenario 1: If VISION comes BEFORE SEARCH (legitimate scenario).
+    The user wants to look at the screen, take notes, research and send.
+    VISION should not be skipped."""
     plan_executor.execute_node = AsyncMock(return_value=True)
     task_state = MagicMock()
     task_state.is_active.return_value = True
@@ -42,11 +40,9 @@ async def test_logic_shield_vision_before_search(plan_executor):
 
 @pytest.mark.asyncio
 async def test_logic_shield_vision_after_search(plan_executor):
-    """
-    Senaryo 2: VISION, SEARCH'ten SONRA geliyorsa (gereksiz senaryo).
-    Araştırma yapılmış, VISION gereksiz yere eklenmiş.
-    Eski davranış korunmalı ve VISION atlanmalı.
-    """
+    """Scenario 2: If VISION comes AFTER SEARCH (redundant scenario).
+    Research has been done, VISION has been added unnecessarily.
+    The old behavior should be kept and VISION should be skipped."""
     plan_executor.execute_node = AsyncMock(return_value=True)
     task_state = MagicMock()
     task_state.is_active.return_value = True
@@ -68,10 +64,8 @@ async def test_logic_shield_vision_after_search(plan_executor):
 
 @pytest.mark.asyncio
 async def test_logic_shield_no_whatsapp(plan_executor):
-    """
-    Senaryo 3: WHATSAPP yoksa VISION atlanmamalı.
-    Araştırma yapılmış olsa bile Whatsapp mesajı yoksa VISION meşrudur.
-    """
+    """Scenario 3: If there is no WHATSAPP, VISION should not be skipped.
+    Even if research has been done, if there is no WhatsApp message, VISION is legitimate."""
     plan_executor.execute_node = AsyncMock(return_value=True)
     task_state = MagicMock()
     task_state.is_active.return_value = True

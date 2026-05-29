@@ -7,14 +7,12 @@ logger = logging.getLogger("JARVIS.IOBridge")
 
 
 class IOBridge:
-    """
-    J.A.R.V.I.S. v2 I/O Arayüzü  [10/10 Upgrade]
+    """J.A.R.V.I.S. v2 I/O Interface [10/10 Upgrade]
 
-    Yeni özellikler:
-    + display_chart_card()      → Matplotlib grafik içeren kart gönderir
-    + update_vision_status()    → Vision modülünün durumunu GUI'ye bildirir
-    + set_memory_notify_callback() → Hafıza kaydında GUI toast tetikler
-    """
+    New features:
+    + display_chart_card() → Matplotlib sends card containing chart
+    + update_vision_status() → Reports the status of the Vision module to the GUI
+    + set_memory_notify_callback() → Triggers GUI toast on memory recording"""
 
     def __init__(self, config=None):
         self.config = config
@@ -50,18 +48,18 @@ class IOBridge:
         old_mode = self._text_mode
         self._text_mode = value
 
-        # [V13.1] STT Mute/Unmute — Yazılı modda mikrofonu tamamen kapat
+        # [V13.1] STT Mute/Unmute — Mute microphone completely in text mode
         if self._stt_instance and hasattr(self._stt_instance, "_muted"):
             self._stt_instance._muted = value
             if value:
-                logger.info("[IOBridge] STT susturuldu — yazılı mod aktif, mikrofon devre dışı.")
+                logger.info("[IOBridge] STT muted — text mode active, microphone disabled.")
             else:
-                logger.info("[IOBridge] STT aktif — sesli mod, mikrofon açık.")
+                logger.info("[IOBridge] STT active — audio mode, microphone on.")
 
         if old_mode and not value:
             if self.text_input_queue:
                 self.text_input_queue.put("")
-                logger.info("[IOBridge] Sesli moda geçiş için kuyruk uyandırıldı.")
+                logger.info("[IOBridge] Queue woken up to switch to voice mode.")
 
     # ─────────────────────────────────────────────────────────────────────────
     # SETTER'LAR
@@ -80,71 +78,61 @@ class IOBridge:
         if self._stt_instance and hasattr(self._stt_instance, "reset_recognizer"):
             try:
                 self._stt_instance.reset_recognizer()
-                logger.info("[IOBridge] STT motoruna 'Hard Reset' uygulandı.")
+                logger.info("[IOBridge] 'Hard Reset' applied to STT engine.")
             except Exception as e:
-                logger.warning(f"STT reset hatası: {e}")
+                logger.warning(f"STT reset error: {e}")
 
     def set_gui_callback(self, callback: Callable) -> None:
         self._gui_callback = callback
 
     def set_card_callback(self, callback: Callable) -> None:
-        """Metin kartı: callback(title, content, image_path)"""
+        """Text card: callback(title, content, image_path)"""
         self._card_callback = callback
 
     def set_chart_card_callback(self, callback: Callable) -> None:
-        """
-        [10/10] Grafik kartı callback'i.
+        """[10/10] Graphics card callback.
         callback(title: str, data: dict, chart_type: str)
 
-        chart_type değerleri: "bar" | "line" | "pie" | "area"
+        chart_type values: "bar" | "line" | "pie" | "area"
 
-        data formatı (örnek):
+        data format (example):
           bar/line/area:
             {"labels": [...], "values": [...], "ylabel": "Değer"}
-          pie:
-            {"labels": [...], "values": [...]}
-        """
+          Pie:
+            {"labels": [...], "values": [...]}"""
         self._chart_card_callback = callback
 
     def set_vision_status_callback(self, callback: Callable) -> None:
-        """
-        [10/10] Vision modülü ekran analizi tamamlandığında çağrılır.
-        callback(summary: str, screenshot_path: str | None)
-        """
+        """[10/10] Called when the Vision module screen analysis is completed.
+        callback(summary: str, screenshot_path: str | None)"""
         self._vision_status_callback = callback
 
     def set_memory_notify_callback(self, callback: Callable) -> None:
-        """
-        [10/10] Hafıza kaydedildiğinde GUI'de toast bildirimi tetikler.
-        callback(text: str, memory_type: str, importance: float)
-        """
+        """[10/10] Triggers toast notification in GUI when memory is saved.
+        callback(text: str, memory_type: str, importance: float)"""
         self._memory_notify_callback = callback
     
     def set_memory_refresh_callback(self, callback: Callable) -> None:
-        """[10/10] Hafıza kaydı sonrası GUI listesini yenilemek için."""
+        """[10/10] To refresh the GUI list after memory saving."""
         self._memory_refresh_callback = callback
 
     
     def set_map_card_callback(self, callback: Callable) -> None:
-        """
-        [MAP] Harita kartı callback'i.
-        callback(title: str, lat: float, lon: float, zoom: int)
-        """
+        """[MAP] Map card callback.
+        callback(title: str, lat: float, lon: float, zoom: int)"""
         self._map_card_callback = callback
 
     def display_map_card(self, title: str, lat: float, lon: float, zoom: int = 13) -> None:
-        """
-        Mission Control'e harita kartı gönderir.
-        Kullanım örneği (brain.py'den):
-        engine.io_bridge.display_map_card("Ofis Konumu", 41.0082, 28.9784, zoom=14)
-        """
+        """Sends map card to Mission Control.
+        Usage example (from brain.py):
+        engine.io_bridge.display_map_card("Office Location", 41.0082, 28.9784, zoom=14)"""
         if self._map_card_callback:
             try:
                 self._map_card_callback(title, lat, lon, zoom)
             except Exception as e:
-                logger.warning(f"Harita kartı gösterilirken hata: {e}")
+                logger.warning(f"Error showing map card: {e}")
         else:
-            # Fallback: koordinatları metin kartı olarak göster
+            # Fallback: show coordinates as text card
             self.display_card(title, f"📍 Konum: {lat:.5f}, {lon:.5f}")
 
 
@@ -163,7 +151,7 @@ class IOBridge:
         if self._shutdown_requested:
             return
         self._shutdown_requested = True
-        logger.info("[IOBridge] 🔴 Kapatma protokolü başlatıldı.")
+        logger.info("[IOBridge] 🔴 Shutdown protocol initiated.")
         self.update_gui("KAPATILIYOR")
         if self.text_input_queue is not None:
             try:
@@ -186,7 +174,7 @@ class IOBridge:
             try:
                 await asyncio.get_running_loop().run_in_executor(None, self._tts_func, text)
             except Exception as e:
-                logger.error(f"[IOBridge] TTS Hatası (maskelenmedi): {e}")
+                logger.error(f"[IOBridge] TTS Error (not masked): {e}")
 
     async def get_input(self) -> str:
         loop = asyncio.get_running_loop()
@@ -214,7 +202,7 @@ class IOBridge:
                 )
                 return result or ""
             except asyncio.TimeoutError:
-                logger.warning("get_input: Yazılı mod zaman aşımı (5 dakika).")
+                logger.warning("get_input: Written mode timeout (5 minutes).")
                 return ""
 
         if self._stt_func:
@@ -223,7 +211,7 @@ class IOBridge:
         return await loop.run_in_executor(None, input, ">>> ")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # GUI GÜNCELLEMELERİ
+    # GUI UPDATES
     # ─────────────────────────────────────────────────────────────────────────
 
     def update_gui(self, status: str) -> None:
@@ -231,40 +219,38 @@ class IOBridge:
             try:
                 self._gui_callback(status)
             except Exception as e:
-                logger.warning(f"GUI güncellenirken hata: {e}")
+                logger.warning(f"Error updating GUI: {e}")
 
     def display_card(self, title: str, content: str, image_path: str = None) -> None:
-        """Metin + isteğe bağlı görsel içeren Mission Control kartı."""
+        """Mission Control card with text + optional image."""
         if self._card_callback:
             try:
                 self._card_callback(title, content, image_path)
             except Exception as e:
-                logger.warning(f"Kart gösterilirken hata: {e}")
+                logger.warning(f"Error showing card: {e}")
 
     def display_chart_card(self, title: str, data: dict, chart_type: str = "bar") -> None:
-        """
-        [10/10] Matplotlib grafik kartı oluştur.
+        """[10/10] Create Matplotlib graphics card.
 
-        Parametreler:
-          title      : Kart başlığı
-          data       : {"labels": [...], "values": [...], "ylabel": "..."}
-                       Pasta grafik için sadece labels + values yeterli
+        Parameters:
+          title : Card title
+          data : {"labels": [...], "values": [...], "ylabel": "..."}
+                       For a pie chart, only labels + values are enough
           chart_type : "bar" | "line" | "pie" | "area"
 
-        Örnek kullanım (brain.py'den):
+        Example usage (from brain.py):
           engine.io_bridge.display_chart_card(
-              "Bugünkü Görevler",
+              "Today's Tasks",
               {"labels": ["Bitti","Devam","Bekliyor"], "values": [3,1,2]},
               chart_type="pie"
-          )
-        """
+          )"""
         if self._chart_card_callback:
             try:
                 self._chart_card_callback(title, data, chart_type)
             except Exception as e:
-                logger.warning(f"Grafik kartı gösterilirken hata: {e}")
+                logger.warning(f"Error showing graphics card: {e}")
         else:
-            # Fallback: normal metin kartı olarak düz veri göster
+            # Fallback: show plain data as normal text card
             content_lines = []
             labels = data.get("labels", [])
             values = data.get("values", [])
@@ -273,27 +259,23 @@ class IOBridge:
             self.display_card(title, "\n".join(content_lines) if content_lines else str(data))
 
     def update_vision_status(self, summary: str, screenshot_path: str = None) -> None:
-        """
-        [10/10] Vision modülü ekran analizini tamamladığında çağrılır.
-        GUI'deki Vision Durumu göstergesini günceller ve
-        analiz özetini bir kart olarak sunar.
-        """
+        """[10/10] Called when the Vision module completes screen analysis.
+        Updates the Vision Status indicator in the GUI and
+        presents the analysis summary as a card."""
         if self._vision_status_callback:
             try:
                 self._vision_status_callback(summary, screenshot_path)
             except Exception as e:
-                logger.warning(f"Vision status güncellenirken hata: {e}")
+                logger.warning(f"Error while updating vision status: {e}")
         else:
-            # Fallback: kartı log paneline yansıt
+            # Fallback: reflect the card to the log panel
             self.display_card("👁 Ekran Analizi", summary, screenshot_path)
 
     def notify_memory_saved(self, text: str, memory_type: str, importance: float) -> None:
-        """
-        [10/10] Hafıza modülü tarafından çağrılır (set_on_save_callback üzerinden).
-        GUI'de kısa "Öğrendim ✓" toast bildirimi tetikler.
-        """
+        """[10/10] Called by the memory module (via set_on_save_callback).
+        In the GUI, a short "I learned ✓" toast triggers the notification."""
         if self._memory_notify_callback:
             try:
                 self._memory_notify_callback(text, memory_type, importance)
             except Exception as e:
-                logger.warning(f"Hafıza bildirimi gösterilirken hata: {e}")
+                logger.warning(f"Error showing memory notification: {e}")

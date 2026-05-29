@@ -81,7 +81,7 @@ class EventBus:
                 if asyncio.iscoroutinefunction(callback):
                     tasks.append(callback(event))
                 else:
-                    # Senkron fonksiyonları Thread Pool'a atarak Event Loop'u koru
+                    # Protect Event Loop by dumping synchronous functions to Thread Pool
                     loop = asyncio.get_running_loop()
                     tasks.append(loop.run_in_executor(None, callback, event))
             
@@ -98,7 +98,7 @@ class EventBus:
                 if asyncio.iscoroutinefunction(callback):
                     tasks.append(callback(event))
                 else:
-                    # Senkron fonksiyonları Thread Pool'a atarak Event Loop'u koru
+                    # Protect Event Loop by dumping synchronous functions to Thread Pool
                     loop = asyncio.get_running_loop()
                     tasks.append(loop.run_in_executor(None, callback, event))
             if tasks:

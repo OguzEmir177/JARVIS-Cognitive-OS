@@ -1,12 +1,10 @@
-"""
-[V12.0] J.A.R.V.I.S. Cognitive Execution Engine
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Merkezi orkestrasyon katmanı. 
-Sorumluluklar:
-    - Alt sistemlerin (Brain, Memory, IOBridge, PlanExecutor) başlatılması
-    - Ana girdi döngüsü (Input Loop)
-    - Görev durum yönetimi (TaskState)
-"""
+"""[V12.0] J.A.R.V.I.S. Cognitive Execution Engine
+━━━━━━━━━━━━━━━━━━━━━━━ ━━━━━━━━━━━━━━━━━━━━━━━
+Central orchestration layer. 
+Responsibilities:
+    - Initialization of subsystems (Brain, Memory, IOBridge, PlanExecutor)
+    - Main input loop (Input Loop)
+    - Task state management (TaskState)"""
 
 import asyncio
 import logging
@@ -33,20 +31,18 @@ from errors import JarvisError
 logger = logging.getLogger("JARVIS.Engine")
 
 class ExecutionEngine:
-    """
-    J.A.R.V.I.S. v8.1 Merkezi Orkestratör.
-    """
+    """J.A.R.V.I.S. v8.1 Central Orchestrator."""
 
     def __init__(self, config: Optional[EngineConfig] = None) -> None:
         self.config = config or EngineConfig()
         self._running: bool = False
 
-        # decoupled bileşenler
+        # decoupled components
         self.io_bridge = IOBridge(self.config)
         self.state_manager: StateManager = StateManager()
         self.task_queue: TaskQueue = TaskQueue(maxsize=self.config.max_queue_size)
         
-        # Core bileşenler (initialize içinde kurulur)
+        # Core components (installed in initialize)
         self.brain: Optional[GroqBrain] = None
         self.memory: Optional[MemoryManager] = None
         self.executor: Optional[Executor] = None
@@ -88,7 +84,7 @@ class ExecutionEngine:
         self.io_bridge.set_stt_instance(instance)
 
     def reset_audio(self) -> None:
-        """Kilitlenen ses motorunu (STT) GUI üzerinden sıfırlamak için kullanılır."""
+        """Used to reset crashed sound engine (STT) via GUI."""
         self.io_bridge.reset_audio_engine()
 
     def set_gui_callback(self, callback: Callable) -> None:
@@ -99,8 +95,8 @@ class ExecutionEngine:
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def initialize(self) -> None:
-        """Tüm alt sistemleri başlatır."""
-        logger.info("Engine başlatılıyor...")
+        """Initializes all subsystems."""
+        logger.info("Starting Engine...")
 
         # 1. Memory
         self.memory = await asyncio.get_running_loop().run_in_executor(
@@ -139,27 +135,27 @@ class ExecutionEngine:
         from core.skill_synthesizer import DynamicSkillSynthesizer
         self.skill_synthesizer = DynamicSkillSynthesizer(self.executor.registry)
         self.plan_executor.skill_synthesizer = self.skill_synthesizer
-        logger.info("Dynamic Skill Synthesizer başlatıldı.")
+        logger.info("Dynamic Skill Synthesizer started.")
 
-        # [V9.0] ContactManager — kişi profil yöneticisi başlatma
+        # [V9.0] ContactManager — starting contact profile manager
         from core.contact_manager import ContactManager
         self.contact_manager = ContactManager(memory_manager=self.memory)
         self.contact_manager.initialize()
 
         # PlanExecutor'a referans ver
         self.plan_executor.contact_manager = self.contact_manager
-        logger.info("ContactManager başlatıldı ve PlanExecutor'a bağlandı.")
+        logger.info("ContactManager is started and connected to PlanExecutor.")
         
-        # [V9.0] Scheduler oluştur
+        # [V9.0] Create scheduler
         from core.scheduler import JarvisScheduler
         self.scheduler = JarvisScheduler(engine=self)
         self.plan_executor.scheduler = self.scheduler
-        logger.info("Scheduler oluşturuldu.")
+        logger.info("Scheduler has been created.")
         
-        # [V10.2] Otonom Bekçi (Watcher)
+        # [V10.2] Autonomous Watcher
         from core.watcher import ProactiveWatcher
         self.watcher = ProactiveWatcher(engine=self)
-        logger.info("Proaktif Watcher başlatıldı.")
+        logger.info("Proactive Watcher has been launched.")
         
         # [V12.0] Initialize Cognitive Core
         from core.cognitive_core import CognitiveCore
@@ -177,36 +173,36 @@ class ExecutionEngine:
         self.pattern_extractor = PatternExtractor(memory=self.memory)
         self.memory.pattern_extractor = self.pattern_extractor
         
-        # [V15.4] Otonom Çöp Temizleyici (Auto-Cleanup)
+        # [V15.4] Autonomous Garbage Cleaner (Auto-Cleanup)
         self._run_autonomous_cleanup()
 
-        # [V14.0] Adaptive Learner — Otonom Öğrenme Motoru
+        # [V14.0] Adaptive Learner — Autonomous Learning Engine
         self.adaptive_learner = AdaptiveLearner()
         self.brain._adaptive_learner_ref = self.adaptive_learner  # Brain'e referans ver
-        logger.info(f"Adaptive Learner başlatıldı: {self.adaptive_learner.get_stats()['total_strategies']} strateji yüklendi.")
+        logger.info(f"Adaptive Learner started: {self.adaptive_learner.get_stats()['total_strategies']} strategy loaded.")
         
-        logger.info("Engine ve Cognitive OS Core V14.0 başarıyla başlatıldı.")
+        logger.info("Engine and Cognitive OS Core V14.0 launched successfully.")
 
 
     async def start(self) -> None:
-        """Ana yürütme döngüsü."""
+        """Main execution loop."""
         self._running = True
         
         # Startup reminders control
         await self._check_startup_reminders()
         
-        await self.io_bridge.speak("Efendim, sistemler hazır. Buyurun sizi dinliyorum.")
-        # [V9.0] Scheduler'ı arka planda başlat
+        await self.io_bridge.speak("Sir, systems are ready. Come on, I'm listening to you.")
+        # [V9.0] Start Scheduler in background
         self._scheduler_task = asyncio.create_task(self.scheduler.run())
-        # [V9.9] Watcher'ı arka planda başlat
+        # [V9.9] Start Watcher in background
         self._watcher_task = asyncio.create_task(self.watcher.run())
-        # [V12.0] Autonomous Cognition Loop başlat
+        # [V12.0] Start Autonomous Cognition Loop
         if self.cognitive_core:
             await self.cognitive_core.start_cognition_loop(self)
 
         while self._running:
             try:
-                self.io_bridge.update_gui("DİNLİYOR")
+                self.io_bridge.update_gui("LISTENING")
 
                 user_input = await self.io_bridge.get_input()
                 if not user_input or len(user_input.strip()) < 2:
@@ -216,7 +212,7 @@ class ExecutionEngine:
                     await self._handle_shutdown()
                     break
 
-                # [V9.5] ShutdownTool sentinel kontrolü
+                # [V9.5] ShutdownTool sentinel control
                 if user_input == "__SHUTDOWN__":
                     break
 
@@ -231,23 +227,23 @@ class ExecutionEngine:
 
                 await self.process_input(user_input)
 
-                # [V9.5] ShutdownTool execute sonrası bayrağı kontrol et
+                # [V9.5] Check flag after ShutdownTool execute
                 if self.io_bridge.shutdown_requested:
                     break
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Engine döngü hatası: {e}", exc_info=True)
-                await self.io_bridge.speak("Efendim, bir hata oluştu.")
+                logger.error(f"Engine loop error: {e}", exc_info=True)
+                await self.io_bridge.speak("Sir, an error has occurred.")
                 await asyncio.sleep(1)
 
         await self.shutdown()
 
     async def shutdown(self) -> None:
-        """Tüm alt sistemleri temiz bir şekilde kapatır."""
+        """It shuts down all subsystems cleanly."""
         self._running = False
-        logger.info("Engine kapatılıyor...")
+        logger.info("Engine shutting down...")
 
         # [V12.0] Cognition Loop durdur
         if self.cognitive_core:
@@ -255,7 +251,7 @@ class ExecutionEngine:
             if self.cognitive_core.perception:
                 self.cognitive_core.perception.stop()
 
-        # [V9.9] Watcher'ı durdur
+        # [V9.9] Stop Watcher
         if hasattr(self, 'watcher'):
             self.watcher.stop()
             if hasattr(self, '_watcher_task') and not self._watcher_task.done():
@@ -265,7 +261,7 @@ class ExecutionEngine:
                 except asyncio.CancelledError:
                     pass
 
-        # [V9.0] Scheduler'ı durdur
+        # [V9.0] Stop Scheduler
         if hasattr(self, 'scheduler'):
             self.scheduler.stop()
         if hasattr(self, '_scheduler_task') and not self._scheduler_task.done():
@@ -276,27 +272,25 @@ class ExecutionEngine:
                 pass
         if self.executor:
             await self.executor.cleanup()
-        logger.info("Engine V12.0 kapatıldı.")
+        logger.info("Engine V12.0 has been shut down.")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     #  PROCESSING
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def process_input(self, user_input: str) -> None:
-        """
-        [V11.1] Hibrit Kognitif İşleme Motoru.
+        """[V11.1] Hybrid Cognitive Processing Engine.
         
-        Mimari: CognitiveCore modülleri karar zenginleştirme için kullanılır,
-        gerçek tool yürütme ise kanıtlanmış legacy pipeline üzerinden yapılır.
+        Architecture: CognitiveCore modules are used for decision enrichment,
+        The actual tool execution is done through the proven legacy pipeline.
         
-        Pipeline:
+        pipeline:
           1. Goal Tracking (CognitiveCore)
           2. Semantic Routing (ToolRouter - deterministic)
           3. Brain Reasoning (LLM)
           4. Plan Execution (Legacy PlanExecutor)
           5. Reflection & Recovery (CognitiveCore)
-          6. Event Emission (EventBus)
-        """
+          6. Event Emission (EventBus)"""
         if user_input == "__SYSTEM_CONSOLIDATE__":
             await asyncio.get_running_loop().run_in_executor(
                 None, self.memory_consolidator.consolidate)
@@ -310,41 +304,41 @@ class ExecutionEngine:
         goal = None
 
         try:
-            await self.io_bridge.speak("Anlaşıldı Efendim.")
-            self.io_bridge.update_gui("İŞLENİYOR")
+            await self.io_bridge.speak("Understood, Sir.")
+            self.io_bridge.update_gui("PROCESSING")
 
             # ════════════════════════════════════════════════════════
             #  PHASE 0: ADAPTIVE LEARNING PRE-CHECK
             # ════════════════════════════════════════════════════════
 
-            # A. Tekrar Tespiti — Aynı komutu kısa sürede tekrar mı etti?
+            # A. Repetition Detection — Did he repeat the same command in a short time?
             repeat_task_id = None
             if hasattr(self, 'adaptive_learner'):
                 repeat_task_id = self.adaptive_learner.detect_repeat(user_input)
                 if repeat_task_id:
-                    logger.info(f"[V14.0] Tekrar tespit edildi — farklı strateji denenecek.")
+                    logger.info(f"[V14.0] Detected again — different strategy will be tried.")
 
-            # B. Öğrenilmiş Strateji Kontrolü
-            # [V15.0] FILE_* ve FOLDER_* operasyonları için learned strategy KULLANMA
-            # — her dosya komutu farklı bir dosyayı hedefler, cached arg geçersiz olur
-            # [V15.5] PYTHON_EXEC eklendi — her kod yazma görevi benzersizdir,
-            # cached strateji eski/yanlış kodu tekrar çalıştırır
+            # B. Learned Strategy Control
+            # [V15.0] USING learned strategy for FILE_* and FOLDER_* operations
+            # — each file command targets a different file, cached arg is invalid
+            # [V15.5] Added PYTHON_EXEC — each coding task is unique,
+            # cached strategy reruns old/incorrect code
             FILE_DYNAMIC_TAGS = {"FILE_CREATE", "FILE_WRITE", "FILE_READ", "FILE_DELETE",
                                   "FOLDER_OPEN", "FILE_LATEST", "PYTHON_EXEC"}
             learned_strategy = None
             if hasattr(self, 'adaptive_learner') and not repeat_task_id:
-                # Önce keyword router'ı çalıştır — eğer FILE_* ise learned strategy atla
+                # Run keyword router first — skip learned strategy if FILE_*
                 try:
                     _quick_route = self.cognitive_core.tool_router._keyword_route(user_input) if self.cognitive_core else None
                     if _quick_route and _quick_route.tool_tag.upper() in FILE_DYNAMIC_TAGS:
-                        logger.info(f"[V15.0] {_quick_route.tool_tag} — learned strategy atlandı (dynamic)")
+                        logger.info(f"[V15.0] {_quick_route.tool_tag} — learned strategy skipped (dynamic)")
                     else:
                         learned_strategy = self.adaptive_learner.find_strategy(user_input)
                 except Exception:
                     learned_strategy = self.adaptive_learner.find_strategy(user_input)
                 
                 if learned_strategy and learned_strategy.tool_chain and learned_strategy.tool_chain[0].upper() in FILE_DYNAMIC_TAGS:
-                    logger.info(f"[V15.0] Öğrenilmiş strateji {learned_strategy.tool_chain[0]} dinamik olduğu için atlandı.")
+                    logger.info(f"[V15.0] Learned strategy {learned_strategy.tool_chain[0]} was skipped because it was dynamic.")
                     learned_strategy = None
 
             # ════════════════════════════════════════════════════════
@@ -365,7 +359,7 @@ class ExecutionEngine:
             # B. Semantic Routing — Deterministic tool selection (LLM bypass)
             forced_route = None
             
-            # [V14.0] Öğrenilmiş strateji varsa, onu öncelikle kullan (FILE_* hariç)
+            # [V14.0] If there is a learned strategy, use it first (except FILE_*)
             if learned_strategy and not repeat_task_id:
                 from core.tool_router import RouteMatch
                 forced_route = RouteMatch(
@@ -375,14 +369,14 @@ class ExecutionEngine:
                     is_forced=True,
                     reasoning=f"Learned strategy ({learned_strategy.success_count}x success)"
                 )
-                logger.info(f"[V14.0] Öğrenilmiş strateji kullanılıyor: {learned_strategy.tool_chain}")
+                logger.info(f"[V14.0] Using learned strategy: {learned_strategy.tool_chain}")
             elif self.cognitive_core:
                 try:
                     forced_route = self.cognitive_core.tool_router.route(user_input)
                     if forced_route:
                         telemetry.log_event(task_id, "ROUTING", "matched", {"tool": forced_route.tool_tag, "confidence": forced_route.confidence})
                 except Exception as route_err:
-                    logger.warning(f"Semantic router hatası (fallback to Brain): {route_err}")
+                    logger.warning(f"Semantic router error (fallback to Brain): {route_err}")
 
             # ════════════════════════════════════════════════════════
             #  PHASE 2: EXECUTION (Real Tool Pipeline)
@@ -392,15 +386,15 @@ class ExecutionEngine:
                 # ── DETERMINISTIC PATH: Router forced a tool ──
                 logger.info(
                     f"[OTONOM KARAR] {forced_route.tool_tag} "
-                    f"(Güven: {forced_route.confidence:.3f}, Forced: True)"
+                    f"(Trust: {forced_route.confidence:.3f}, Forced: True)"
                 )
                 from core.planner import PlanNode
 
-                # [V15.0] Param extraction — FILE_* araçları için router'ın verdiği
+                # [V15.0] Param extraction — Router provided for FILE_* tools
                 # parametreyi aynen kullan (file_path_and_content, folder_path vb.)
                 params = forced_route.params or {}
 
-                # FILE_* araçları için doğru param key'i kullan
+                # Use correct param key for FILE_* tools
                 FILE_PARAM_KEYS = {
                     "FILE_WRITE":  "file_path_and_content",
                     "FILE_CREATE": "file_path",
@@ -411,19 +405,19 @@ class ExecutionEngine:
                 }
                 tool_tag = forced_route.tool_tag.upper()
                 if tool_tag in FILE_PARAM_KEYS:
-                    # Önce router'ın doğru key'ini dene
-                    # [V15.0] KRITIK: '' (boş string) de geçerli bir değer —
-                    # tool context'ten last_active_file alır. None check kullan.
+                    # First try the correct key of the router
+                    # [V15.0] CRITICAL: '' (empty string) is also a valid value —
+                    # tool gets last_active_file from context. Use None check.
                     expected_key = FILE_PARAM_KEYS[tool_tag]
                     val = params.get(expected_key)
                     if val is not None:
-                        node_arg = val  # "" bile olsa geçir — tool context'ten alır
+                        node_arg = val  # Pass even "" — gets from tool context
                     elif "query" in params:
                         node_arg = params["query"]
                     else:
                         node_arg = user_input
                 else:
-                    # Diğer araçlar: query varsa al, yoksa ilk value veya user_input
+                    # Other tools: get query if present, first value or user_input if not
                     if "query" in params:
                         node_arg = params["query"]
                     elif params:
@@ -442,30 +436,30 @@ class ExecutionEngine:
                     last_tool = task_state.tool_history[-1] if task_state.tool_history else {}
                     if not last_tool.get("result", {}).get("speak"):
                         await self.io_bridge.speak(
-                            f"Efendim, {forced_route.tool_tag} işlemi başarısız oldu. "
-                            f"Farklı bir yol deneyeyim mi?"
+                            f"Sir, operation {forced_route.tool_tag} failed."
+                            f"Should I try a different way?"
                         )
                     self.state_manager.fail_task(task_id, f"Deterministic route failed: {forced_route.tool_tag}")
             else:
                 # ── STANDARD PATH: Brain → Plan → Execute ──
-                # 1. Beyin Düşünür
+                # 1. The Brain Thinks
                 response = await self.brain.think(user_input)
                 if response == "RATE_LIMIT_ALL":
-                    await self.io_bridge.speak("Efendim, beyin modülüm dinlenmeye geçti.")
+                    await self.io_bridge.speak("Sir, my brain module has gone into rest.")
                     if goal:
                         self.cognitive_core.goal_manager.update_goal(goal.id, status="failed")
                     return
 
-                # [V9.5] Plan Sızıntı Temizleyici
+                # [V9.5] Plan Leak Cleaner
                 response = self._sanitize_llm_output(response)
 
-                # 2. Plan tespiti ve yürütme
+                #2. Plan determination and execution
                 plan = await self.plan_executor.detect_and_parse_plan(response, user_input)
 
                 if plan:
                     await self.plan_executor.execute_plan(task_state, plan)
                 else:
-                    # [V9.8] Karışık İçerik Yönetimi
+                    # [V9.8] Mixed Content Management
                     protocol_start = response.find("[PROTOCOL:")
                     if protocol_start > 0:
                         preceding_text = response[:protocol_start].strip()
@@ -487,7 +481,7 @@ class ExecutionEngine:
             if self.reflector:
                 _ref_task = asyncio.create_task(self.reflector.reflect(task_state))
                 _ref_task.add_done_callback(
-                    lambda t: logger.warning(f"Reflection task hatası: {t.exception()!r}")
+                    lambda t: logger.warning(f"Reflection task error: {t.exception()!r}")
                     if not t.cancelled() and t.exception() is not None
                     else None
                 )
@@ -508,7 +502,7 @@ class ExecutionEngine:
             
             telemetry.log_event(task_id, "RESPONSE_GENERATED", "end", {"status": task_state.status, "tools": len(task_state.tool_history)})
 
-            # D. [V14.0] ADAPTIVE LEARNING — Başarı/Başarısızlık Kaydı
+            # D. [V14.0] ADAPTIVE LEARNING — Pass/Fail Record
             if hasattr(self, 'adaptive_learner'):
                 tools_used = [h.get("tool", "") for h in task_state.tool_history if h.get("tool")]
                 args_used = [h.get("arg", "") for h in task_state.tool_history if h.get("tool")]
@@ -518,7 +512,7 @@ class ExecutionEngine:
                     if is_success:
                         self.adaptive_learner.record_success(user_input, tools_used, args_used)
                         
-                        # [V15.0] Semantic Router Dynamic Embedding Otonom Öğrenme
+                        # [V15.0] Semantic Router Dynamic Embedding Autonomous Learning
                         if self.cognitive_core and len(tools_used) == 1 and not (forced_route and forced_route.is_forced):
                             router = getattr(self.cognitive_core, 'tool_router', None)
                             if router and hasattr(router, 'learn_new_route'):
@@ -527,7 +521,7 @@ class ExecutionEngine:
                     else:
                         self.adaptive_learner.record_failure(user_input, tools_used)
                 
-                # Repeat detection için task_id'yi güncelle
+                # Update task_id for repeat detection
                 self.adaptive_learner.update_recent_task_id(user_input, task_id)
 
             # E. Event Emission + Tool Learning
@@ -541,7 +535,7 @@ class ExecutionEngine:
                 }, sender="Engine")
 
         except Exception as e:
-            logger.error(f"İşleme hatası [{task_id}]: {e}", exc_info=True)
+            logger.error(f"Processing error [{task_id}]: {e}", exc_info=True)
             self.state_manager.fail_task(task_id, str(e))
 
             # Recovery System
@@ -559,13 +553,13 @@ class ExecutionEngine:
                         "task_id": task_id, "error": str(e), "recovery": recovery
                     }, sender="Engine")
                 except Exception as rec_err:
-                    logger.warning(f"Recovery system hatası: {rec_err}")
+                    logger.warning(f"Recovery system error: {rec_err}")
 
-            await self.io_bridge.speak("Efendim, bir sorun oluştu.")
+            await self.io_bridge.speak("Sir, something went wrong.")
         finally:
-            # İşlem bittikten sonra hafızadaki çöp izlerini temizle
+            # Clean up traces of garbage in memory after the process is finished
             self._run_autonomous_cleanup()
-            self.io_bridge.update_gui("DİNLİYOR")
+            self.io_bridge.update_gui("LISTENING")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     #  HELPERS
@@ -573,57 +567,55 @@ class ExecutionEngine:
 
     @staticmethod
     def _sanitize_llm_output(text: str) -> str:
-        """
-        [V9.5] Plan Sızıntı Temizleyici (Plan Leak Sanitizer)
-        ─────────────────────────────────────────────────────
-        LLM bazen [PLAN] bloğunu [/PLAN] yerine uydurma etiketle kapatır.
-        Bu etiketler parser'dan kaçıp kullanıcı ekranına ham string olarak sızar.
+        """[V9.5] Plan Leak Sanitizer
+        ────────────────────────── ───────────────────────────
+        LLM sometimes closes the [PLAN] block with a made-up tag instead of [/PLAN].
+        These tags escape the parser and leak onto the user screen as raw strings.
 
-        Temizlenen örüntüler:
-          ./PROTOCOL PLAN   [en sık görülen halüsinasyon]
+        Cleared patterns:
+          ./PROTOCOL PLAN [most common hallucination]
           /PROTOCOL PLAN
           [/PROTOCOL]
           [/PROTOCOL PLAN]
-          [PLAN_END]  [END_PLAN]  [/PLAN_END]
-          ./PLAN  /PLAN (tek başına yanlış yerde)
+          [PLAN_END] [END_PLAN] [/PLAN_END]
+          ./PLAN /PLAN (alone in the wrong place)
 
-        Strateji:
-          - Önce köşeli parantezli tam örüntüler (en spesifik → greedy sorunu önler)
-          - Sonra slash-prefix genel örüntüler
-          - [/PLAN] (geçerli kapanış) DOKUNULMAZ.
-        """
+        Strategy:
+          - Full patterns with square brackets first (most specific → avoids greedy problem)
+          - Then slash-prefix general patterns
+          - [/PLAN] (current closing) UNTOUCHED."""
         if not text:
             return text
 
-        # ── 1. Köşeli parantez içindeki uydurma kapanışlar (ÖNCELİKLİ) ───
+        # ── 1. Fictitious closures in square brackets (PRIORITY) ───
         # [/PROTOCOL PLAN], [/PROTOCOL], [PLAN_END], [END_PLAN], [PLAN_CLOSE]
         text = re.sub(
             r'\[\.?/?(?:PROTOCOL(?:[:\s]+PLAN)?|PLAN_END|END_PLAN|PLAN_CLOSE|/PLAN_END)\]',
             '', text, flags=re.IGNORECASE
         )
 
-        # ── 2. Nokta-slash prefix ile gelen uydurma etiketler ─────────────
-        # Örn: "Google'da aratıldı ./PROTOCOL PLAN"
+        # ── 2. Made-up tags that come with dot-slash prefix ─────────────
+        # Ex: "Searched on Google ./PROTOCOL PLAN"
         text = re.sub(
             r'\.?\s*/\s*PROTOCOL(?:[:\s]+PLAN)?\b',
             '', text, flags=re.IGNORECASE
         )
 
         # ── 3. Slash-prefix genel uydurma etiketler ───────────────────────
-        # /PROTOCOL, /PROTOCOL PLAN  (köşeli parantez olmadan)
+        # /PROTOCOL, /PROTOCOL PLAN (without square brackets)
         text = re.sub(
             r'(?<!\[)/\s*PROTOCOL(?:[:\s]+PLAN)?\b',
             '', text, flags=re.IGNORECASE
         )
 
-        # ── 4. Protokol Sızıntısı Temizleyici (Metin içindeki sızıntılar) ─
-        # Eğer bir satırda [PROTOCOL: REMEMBER] gibi bir ifade geçiyorsa ve bu bir komut değil de
-        # cümlenin ortasındaysa onu temizle.
-        # [V9.8] Sadece komut başlangıcı olmayanları temizle.
+        # ── 4. Protocol Leak Cleaner (Leaks in text) ─
+        # If a line contains a statement like [PROTOCOL: REMEMBER] and it is not a command
+        If # is in the middle of the sentence, clear it out.
+        # [V9.8] Clear only non-command start.
         def _leak_fixer(match):
             full_match = match.group(0)
-            # Eğer satır başındaysa veya öncesinde sadece boşluk varsa komut kabul et (dokunma)
-            # Ama metnin içindeyse ("Lütfen [PROTOCOL: ...]") temizle.
+            # If it is at the beginning of a line or preceded by only a space, accept command (tap)
+            # But if it's in text ("Please [PROTOCOL: ...]") clear it.
             start_pos = match.start()
             if start_pos > 0 and text[start_pos-1] not in ['\n', ' ']:
                 return ""
@@ -631,33 +623,31 @@ class ExecutionEngine:
 
         text = re.sub(r'\[PROTOCOL:\s*\w+\]', _leak_fixer, text, flags=re.IGNORECASE)
 
-        # ── 4. Artık boş satırları temizle ────────────────────────────────
+        # ── 4. Clear leftover blank lines ────────────────────────────────
         text = re.sub(r'\n{3,}', '\n\n', text)
         text = re.sub(r'[ \t]+\n', '\n', text)
 
         return text.strip()
 
     def _is_shutdown_command(self, text: str) -> bool:
-        return any(cmd in text.lower() for cmd in ["sistemi kapat", "jarvis kapan", "kendini kapat", "çıkış yap"])
+        return any(cmd in text.lower() for cmd in ["sistemi kapat", "jarvis kapan", "kendini kapat", "log out"])
 
     def _clean_wake_word(self, text: str) -> str:
         # v8.0 logic simplified for orchestrator
         return text.strip()
 
     async def _handle_shutdown(self) -> None:
-        """
-        [V9.5 FIX] Keyword ile tetiklenen kapatma yolu.
-        Artık io_bridge.request_shutdown() çağrılıyor:
-          → GUI'ye 'KAPATILIYOR' sinyali gider → _on_close() tetiklenir
-          → Sentinel kuyruğa girer → blocking get() açılır
-          → self._running = False  (engine döngüsü kırılır)
-        """
-        await self.io_bridge.speak("Sistemler kapatılıyor. İyi günler dilerim Efendim.")
+        """[V9.5 FIX] Keyword triggered shutdown path.
+        Now io_bridge.request_shutdown() is called:
+          → 'CLOSING' signal goes to GUI → _on_close() is triggered
+          → Sentinel enters the queue → blocking get() is turned on
+          → self._running = False (engine loop is broken)"""
+        await self.io_bridge.speak("Systems are shutting down. Have a nice day Sir.")
         self.io_bridge.request_shutdown()   # ← GUI sinyali + bayrak + sentinel
         self._running = False
 
     async def _check_startup_reminders(self) -> None:
-        """Okunmamış başlangıç hatırlatmalarını kontrol edip okur."""
+        """Checks and reads unread startup reminders."""
         import os, json
         filepath = os.path.join(os.getcwd(), "startup_reminders.json")
         
@@ -670,12 +660,12 @@ class ExecutionEngine:
                 os.remove(filepath)
                 return data
             except Exception as e:
-                logger.error(f"Başlangıç hatırlatma okuma hatası: {e}")
+                logger.error(f"Startup reminder read error: {e}")
                 return None
 
         reminders = await asyncio.get_running_loop().run_in_executor(None, _read_and_clear)
         if reminders and isinstance(reminders, list):
-            await self.io_bridge.speak("Efendim, önceki açılıştan kalan hatırlatmalarınız var.")
+            await self.io_bridge.speak("Sir, you have reminders from the previous opening.")
             for item in reminders:
                 await self.io_bridge.speak(item)
                 await asyncio.sleep(1)
@@ -688,46 +678,44 @@ class ExecutionEngine:
         return m
 
     async def _init_brain_with_retry(self) -> "GroqBrain":
-        """
-        [V8.1 FIX] BUG #3: Gerçek retry döngüsü — önceki versiyonda check_connection()
-        dönüş değeri yok sayılıyor ve hiçbir retry yapılmıyordu.
+        """[V8.1 FIX] BUG #3: Real retry loop — check_connection() in previous version
+        The return value was ignored and no retry was made.
 
-        Strateji:
-            - Her başarısız denemeden sonra üstel geri çekilme (2^attempt saniye)
-            - Tüm denemeler tükenirse kısıtlı modda devam et (çökme değil)
-        """
+        Strategy:
+            - Exponential backoff after each failed attempt (2^attempt seconds)
+            - Continue in restricted mode if all attempts are exhausted (not crash)"""
         from core.brain import GroqBrain
         b = GroqBrain(self.config, memory_manager=self.memory)
 
         for attempt in range(self.config.brain_connect_retries):
             connected = await b.check_connection()
             if connected:
-                logger.info(f"Brain bağlantısı kuruldu (deneme {attempt + 1}/{self.config.brain_connect_retries})")
+                logger.info(f"Brain connection established (trial {attempt + 1}/{self.config.brain_connect_retries})")
                 return b
 
             wait_s = 2 ** attempt  # 1s, 2s, 4s, 8s, 16s…
             logger.warning(
-                f"Brain bağlantı denemesi {attempt + 1}/{self.config.brain_connect_retries} "
-                f"başarısız. {wait_s}s sonra tekrar denenecek..."
+                f"Brain connection attempt {attempt + 1}/{self.config.brain_connect_retries}"
+                f"unsuccessful. Will try again after {wait_s}s..."
             )
             await asyncio.sleep(wait_s)
 
-        # Fail-Fast Prensibi: Tüm denemeler başarısızsa kısıtlı mod yerine sistemi çökertip net log ver.
+        # Fail-Fast Principle: If all attempts fail, crash the system and give a clear log instead of restricted mode.
         error_msg = (
-            f"Kritik Hata: Brain bağlantısı {self.config.brain_connect_retries} denemeye rağmen kurulamadı! "
-            "Lütfen internet bağlantınızı ve GROQ_API_KEY bilginizi kontrol edin."
+            f"Critical Error: Brain connection {self.config.brain_connect_retries} could not be established despite attempts!"
+            "Please check your internet connection and GROQ_API_KEY."
         )
         logger.critical(error_msg)
         raise SystemError(error_msg)
 
     def _run_autonomous_cleanup(self) -> None:
-        """[V15.5] Otonom Çöp Temizleyici - Tüm kirli etiketleri temizler."""
+        """[V15.5] Autonomous Garbage Cleaner - Cleans all dirty tags."""
         if self.memory and self.memory.collection:
             try:
                 def _clean_junk():
                     KIRLI_TAGLAR = [
-                        "[ne yaptim]", "[ne işe yaradi]",
-                        "[ne başarisiz]", "[sonraki seferde]"
+                        "[ne yaptim]", "[what did it do]",
+                        "[what a failure]", "[sonraki seferde]"
                     ]
                     results = self.memory.collection.get(include=["documents"])
                     docs = results.get("documents", [])
@@ -742,12 +730,12 @@ class ExecutionEngine:
                                 
                     if bad_ids:
                         self.memory.collection.delete(ids=bad_ids)
-                        logger.info(f"Otonom Temizlik: ChromaDB'den {len(bad_ids)} adet çöp log silindi.")
+                        logger.info(f"Autonomous Cleaning: {len(bad_ids)} garbage logs were deleted from ChromaDB.")
                 
                 loop = asyncio.get_running_loop()
                 loop.run_in_executor(None, _clean_junk)
             except Exception as e:
-                logger.debug(f"Auto-cleanup hatası: {e}")
+                logger.debug(f"Auto-cleanup error: {e}")
 
     def _setup_logging(self) -> None:
         pass

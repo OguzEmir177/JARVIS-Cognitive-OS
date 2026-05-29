@@ -1,33 +1,31 @@
-"""
-[V8.0] J.A.R.V.I.S. Rule-Based Reflector
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Görev sonrası değerlendirme motoru.
+"""[V8.0] J.A.R.V.I.S. Rule-Based Reflector
+━━━━━━━━━━━━━━━━━━━━━ ━━━━━━━━━━━━━━━━━━━━━
+Post-mission evaluation engine.
 
-Sorumluluklar:
-    - Ne yaptım? / Ne işe yaradı? / Ne başarısız oldu? /
-      Sonraki seferde ne değişir? sorularını cevapla
-    - Sonucu ChromaDB'ye episodic memory olarak kaydet
-    - Gelecek planlamada context olarak sun
+Responsibilities:
+    - What did I do? / What did it do? / What failed? /
+      What changes next time? answer your questions
+    - Save the result to ChromaDB as episodic memory
+    - Provide context for future planning
 
-Tasarım Kararları:
-    Neden kural-tabanlı (LLM değil)?
-    → Groq free tier: 30 req/min, 6000 token/min.
-      Her görevde reflection LLM çağrısı bütçeyi patlatır.
-    → Basit başarı/hata → deterministik şablonlar yeterli.
-    → Ambiguous durumlar nadirdir → opsiyonel LLM flag var.
+Design Decisions:
+    Why rule-based (not LLM)?
+    → Groq free tier: 30 req/min, 6000 tokens/min.
+      Calling for reflection LLM on every mission blows the budget.
+    → Simple success/error → deterministic templates are enough.
+    → Ambiguous cases are rare → there is an optional LLM flag.
 
-    Neden 4 soru formatı?
+    Why 4 question format?
     → "What did I do? What worked? What failed? What to change?"
-      — standart reflective learning framework.
-    → Şablon metin ChromaDB'ye düşünce → ileride semantic
-      retrieval ile benzer görevlerde context olarak kullanılır.
+      — standard reflective learning framework.
+    → Template text moves to ChromaDB → semantics in the future
+      It is used as context in tasks similar to retrieval.
 
 Edge Cases:
-    - TaskState.tool_history boşsa → "tool kullanılmadı" notu
-    - Tüm tool'lar başarılıysa → kısa pozitif summary
-    - Tüm tool'lar başarısızsa → detaylı hata analizi
-    - Kısmi başarı → "ambiguous" flag → opsiyonel LLM reflection
-"""
+    - If TaskState.tool_history is empty → note "tool not used"
+    - If all tools are successful → short positive summary
+    - If all tools fail → detailed error analysis
+    - Partial success → "ambiguous" flag → optional LLM reflection"""
 
 import logging
 from typing import Any, Dict, List, Optional
@@ -39,35 +37,32 @@ logger = logging.getLogger("JARVIS.Reflector")
 
 
 class Reflector:
-    """
-    Kural-tabanlı reflection engine.
+    """Rule-based reflection engine.
 
-    engine.py ile uyumlu API:
+    API compatible with engine.py:
         reflector = Reflector(memory=memory, brain=brain)
         result = reflector.reflect(task_state)
-        # result → {"summary": str, "task_type": str,
+        #result → {"summary": str, "task_type": str,
         #            "outcome": str, "tool_used": str}
-        # veya None (reflection gerekmiyorsa)
+        # or None (if reflection is not required)
 
     Attributes:
-        memory:  MemoryManager reference (episodic write için)
-        brain:   GroqBrain reference (opsiyonel LLM reflection için)
-    """
+        memory: MemoryManager reference (for episodic write)
+        brain: GroqBrain reference (for optional LLM reflection)"""
 
     def __init__(
         self,
         memory: Optional[MemoryManager] = None,
-        brain: Optional[Any] = None,  # GroqBrain, circular import'u önlemek için Any
+        brain: Optional[Any] = None,  # GroqBrain Any to prevent circular import
     ) -> None:
         self.memory = memory
         self.brain = brain
 
     async def reflect(self, task_state: TaskState) -> Optional[Dict[str, str]]:
-        """
-        Görev sonrası kural-tabanlı reflection üretir.
+        """Produces post-task rule-based reflection.
 
         Args:
-            task_state: Tamamlanmış veya başarısız TaskState
+            task_state: Completed or failed TaskState
 
         Returns:
             Reflection dict:
@@ -77,40 +72,39 @@ class Reflector:
                     "outcome":    str — "success" | "failure" | "partial"
                     "tool_used":  str — kullanılan ana tool (virgülle ayrılmış)
                 }
-            None — reflection üretilecek bir şey yoksa
-                   (ör: boş tool_history, görev henüz bitmemiş)
+            None — reflection if there is nothing to produce
+                   (ex: empty tool_history, mission not finished yet)
 
         Edge Cases:
-            - is_terminal == False → None (görev bitmemiş, reflection yok)
-            - tool_history boş → genel sohbet, reflection skip
-            - Tüm tool'lar başarılı → kısa pozitif not
-            - Tüm tool'lar başarısız → detaylı hata notu
-            - Kısmi başarı → "partial" outcome
-        """
-        # Guard: Görev henüz terminal durumda değilse reflection üretme
+            - is_terminal == False → None (task not finished, no reflection)
+            - tool_history is empty → general chat, reflection skip
+            - All tools successful → short positive note
+            - All tools fail → detailed error note
+            - Partial success → "partial" outcome"""
+        # Guard: Do not produce reflection if the task is not yet in terminal state
         if not task_state.is_terminal:
             logger.debug(
-                f"Reflection atlandı: task {task_state.id} "
-                f"henüz terminal değil ({task_state.status})"
+                f"Reflection skipped: task {task_state.id}"
+                f"not yet terminal ({task_state.status})"
             )
             return None
 
-        # Guard: Tool kullanılmadıysa (saf sohbet) reflection üretme
+        # Guard: Producing reflection if the tool is not used (pure chat)
         history = task_state.tool_history
         if not history:
             logger.debug(
-                f"Reflection atlandı: task {task_state.id} "
-                f"tool_history boş (saf sohbet)"
+                f"Reflection skipped: task {task_state.id}"
+                f"tool_history is empty (pure chat)"
             )
             return None
 
-        # ── ANALİZ ──
+        # ── ANALYSIS ──
         tools_used = [h.get("tool", "unknown") for h in history]
         successes = [h for h in history if h.get("success", False)]
         failures = [h for h in history if not h.get("success", True)]
         total_duration = sum(h.get("duration_ms", 0) for h in history)
 
-        # ── OUTCOME BELİRLEME ──
+        # ── OUTCOME DETERMINATION ──
         outcome = self._determine_outcome(
             total=len(history),
             success_count=len(successes),
@@ -120,7 +114,7 @@ class Reflector:
         # ── TASK TYPE ──
         task_type = self._infer_task_type(tools_used)
 
-        # ── TOOL USED (virgülle ayrılmış) ──
+        # ── TOOL USED (comma separated) ──
         unique_tools = list(dict.fromkeys(tools_used))  # order-preserving unique
         tool_used_str = ", ".join(unique_tools)
 
@@ -136,7 +130,7 @@ class Reflector:
         )
 
         logger.info(
-            f"Reflection üretildi: task={task_state.id}, "
+            f"Reflection generated: task={task_state.id},"
             f"outcome={outcome}, tools={tool_used_str}"
         )
 
@@ -152,64 +146,62 @@ class Reflector:
         if outcome == "failure":
             importance = 0.2
         elif "music" in task_type or "spotify" in tool_used_str.lower():
-            importance = 0.4 # Rutin görevler
+            importance = 0.4 # Routine tasks
         
         # ── BUDAMA (Pruning) ──
         if importance < 0.3:
-            logger.info(f"Reflection budandı (Importance={importance} < 0.3): task={task_state.id}")
+            logger.info(f"Reflection pruned (Importance={importance} < 0.3): task={task_state.id}")
             return reflection_dict
 
-        # Epizodik hafızaya kayıt İPTAL EDİLDİ (Token limitini korumak ve çöp veriyi engellemek için)
-        # Öğrenme işlemleri zaten AdaptiveLearner tarafından JSON'a kaydediliyor.
+        # Episodic memory recording CANCELED (To maintain token limit and prevent garbage data)
+        # Learning operations are already recorded in JSON by AdaptiveLearner.
         return reflection_dict
 
     async def reflect_with_llm(
         self, task_state: TaskState, hint: str = ""
     ) -> Optional[Dict[str, str]]:
-        """
-        Ambiguous durumlar için LLM destekli reflection.
+        """LLM supported reflection for ambiguous situations.
 
-        Bu metod sadece engine tarafından açıkça çağrıldığında devreye girer.
-        Normal akışta reflect() kural-tabanlı çalışır.
+        This method is only invoked when explicitly called by the engine.
+        In normal flow, reflect() works rule-based.
 
         Args:
-            task_state: Görev durumu
-            hint:       LLM'e ek bağlam (ör: "kısmi başarı sebebi belirsiz")
+            task_state: Task state
+            hint: additional context to LLM (e.g. "reason for partial success unclear")
 
         Returns:
-            Reflection dict veya None
+            Reflection dict or None
 
         Edge Cases:
-            - brain None ise → kural-tabanlı reflect()'e fallback
-            - LLM timeout → kural-tabanlı reflect()'e fallback
-            - LLM 429 → kural-tabanlı reflect()'e fallback
-        """
+            - if brain is None → fallback to rule-based reflect()
+            - LLM timeout → fallback to rule-based reflect()
+            - LLM 429 → fallback to rule-based reflect()"""
         if self.brain is None:
             logger.warning(
-                "LLM reflection istendi ama brain mevcut değil, "
-                "kural-tabanlı fallback kullanılıyor."
+                "LLM reflection was requested but brain is not available,"
+                "rule-based fallback is used."
             )
             return await self.reflect(task_state)
 
-        # Kural-tabanlı base reflection'ı al
+        # Get rule-based base reflection
         base_reflection = await self.reflect(task_state)
         if base_reflection is None:
             return None
 
-        # LLM'e sor: "Bu görev neden kısmen başarılı oldu?"
+        # Ask the LLM: "Why was this mission partially successful?"
         try:
             prompt = (
-                f"J.A.R.V.I.S. bir görev tamamladı.\n"
+                f"J.A.R.V.I.S. completed a task.\n"
                 f"Hedef: {task_state.goal}\n"
-                f"Sonuç: {base_reflection['outcome']}\n"
-                f"Kullanılan araçlar: {base_reflection['tool_used']}\n"
-                f"Kural-tabanlı özet: {base_reflection['summary']}\n"
-                f"Ek bağlam: {hint}\n\n"
-                f"Bu görev hakkında kısa bir değerlendirme yaz. "
-                f"Sonraki seferde ne farklı yapılmalı?"
+                f"Result: {base_reflection['outcome']}\n"
+                f"Tools used: {base_reflection['tool_used']}\n"
+                f"Rule-based summary: {base_reflection['summary']}\n"
+                f"Additional context: {hint}\n\n"
+                f"Write a brief review about this assignment."
+                f"What should be done differently next time?"
             )
 
-            # brain.think() artık async
+            # brain.think() is now async
             llm_response_obj = await self.brain.client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
@@ -220,10 +212,10 @@ class Reflector:
             llm_response = llm_response_obj.choices[0].message.content.strip()
 
             base_reflection["summary"] += f"\n[LLM INSIGHT]: {llm_response}"
-            logger.info("LLM reflection başarıyla eklendi.")
+            logger.info("LLM reflection has been added successfully.")
 
         except Exception as e:
-            logger.warning(f"LLM reflection başarısız (fallback): {e}")
+            logger.warning(f"LLM reflection failed (fallback): {e}")
 
         return base_reflection
 
@@ -235,17 +227,15 @@ class Reflector:
     def _determine_outcome(
         total: int, success_count: int, failure_count: int
     ) -> str:
-        """
-        Başarı durumunu belirler.
+        """It determines the success status.
 
         Returns:
-            "success"  — tüm adımlar başarılı
-            "failure"  — tüm adımlar başarısız
-            "partial"  — karışık sonuç
+            "success" — all steps successful
+            "failure" — all steps failed
+            "partial" — mixed results
 
         Edge Case:
-            total == 0 → "success" (tool kullanılmadı = saf sohbet başarısı)
-        """
+            total == 0 → "success" (no tool used = pure chat success)"""
         if total == 0:
             return "success"
         if failure_count == 0:
@@ -256,15 +246,13 @@ class Reflector:
 
     @staticmethod
     def _infer_task_type(tools_used: List[str]) -> str:
-        """
-        Kullanılan tool'lardan görev türünü çıkarır.
+        """Extracts the task type from the tools used.
 
         Mapping:
             GOOGLE_SEARCH, WEB_OPEN, YT_* → "web"
-            APP_OPEN, APP_KILL, TAB_KILL   → "desktop"
-            VISION, STRESS_TEST            → "system"
-            Karışık                        → "mixed"
-        """
+            APP_OPEN, APP_KILL, TAB_KILL → "desktop"
+            VISION, STRESS_TEST → "system"
+            Mixed → “mixed”"""
         web_tools = {"GOOGLE_SEARCH", "WEB_OPEN", "YT_SEARCH", "YT_PLAY",
                      "WHATSAPP_MESSAGE", "WHATSAPP_DELETE"}
         desktop_tools = {"APP_OPEN", "APP_KILL", "TAB_KILL"}
@@ -298,68 +286,66 @@ class Reflector:
         total_duration: int,
         last_error: Optional[str],
     ) -> str:
-        """
-        4 sorunun cevabını tek bir özet metne dönüştürür.
+        """It converts the answers to 4 questions into a single summary text.
 
         Format:
-            [NE YAPTIM] ...
-            [NE İŞE YARADI] ...
-            [NE BAŞARISIZ OLDU] ...
-            [SONRAKİ SEFERDE] ...
+            [WHAT DID I DO] ...
+            [WHAT IT DID] ...
+            [WHAT FAILED] ...
+            [NEXT TIME] ...
 
         Edge Cases:
-            - Hiç failure yoksa → "Başarısız olan yok"
-            - Hiç success yoksa → "İşe yarayan yok"
-            - last_error None → hata detayı atlanır
-        """
+            - If there is no failure → "There is no failure"
+            - If there is no success → "Nothing works"
+            - last_error None → error detail is skipped"""
         lines = []
 
         # 1. NE YAPTIM?
-        tools_str = ", ".join(tools_used) if tools_used else "hiçbir araç"
+        tools_str = ", ".join(tools_used) if tools_used else "no vehicle"
         lines.append(
             f"[NE YAPTIM] Hedef: '{goal[:80]}'. "
-            f"Kullanılan araçlar: {tools_str}. "
-            f"Toplam süre: {total_duration}ms."
+            f"Tools used: {tools_str}."
+            f"Total time: {total_duration}ms."
         )
 
-        # 2. NE İŞE YARADI?
+        # 2. WHAT WORKED?
         if successes:
             success_tools = [s.get("tool", "?") for s in successes]
             lines.append(
-                f"[NE İŞE YARADI] Başarılı araçlar: {', '.join(success_tools)}."
+                f"[WHAT IT DID] Successful tools: {', '.join(success_tools)}."
             )
         else:
-            lines.append("[NE İŞE YARADI] İşe yarayan araç yok.")
+            lines.append("[WHAT WORKED] There is no tool that works.")
 
-        # 3. NE BAŞARISIZ OLDU?
+        # 3. WHAT FAILED?
         if failures:
             fail_tools = [f.get("tool", "?") for f in failures]
-            error_detail = f" Son hata: {last_error}" if last_error else ""
+            error_detail = f"Last error: {last_error}" if last_error else ""
             lines.append(
-                f"[NE BAŞARISIZ OLDU] Başarısız araçlar: "
+                f"[WHAT FAILED] Failed tools:"
                 f"{', '.join(fail_tools)}.{error_detail}"
             )
         else:
-            lines.append("[NE BAŞARISIZ OLDU] Başarısız olan yok.")
+            lines.append("[WHAT HAS FAILED] There is no one who has failed.")
 
-        # 4. SONRAKİ SEFERDE NE DEĞİŞİR?
+        # 4. WHAT WILL CHANGE NEXT TIME?
         if outcome == "success":
             lines.append(
-                "[SONRAKİ SEFERDE] Aynı strateji "
-                "tekrar kullanılabilir (başarılı kanıtlanmış)."
+                "[NEXT TIME] Same strategy"
+                "Reusable (proven successful)."
             )
         elif outcome == "failure":
             # Hangi fallback denenebilir?
             suggestion = (
-                f"Alternatif araç veya farklı argüman denenebilir."
+                f"Alternative tools or different arguments can be tried."
             )
             if last_error and "timeout" in last_error.lower():
-                suggestion = "Timeout süresi artırılabilir veya daha hafif araç denenebilir."
-            lines.append(f"[SONRAKİ SEFERDE] {suggestion}")
+                suggestion = "Timeout period can be increased or a lighter vehicle can be tried."
+            lines.append(f"[NEXT TIME] {suggestion}")
         else:  # partial
             lines.append(
-                "[SONRAKİ SEFERDE] Başarısız adımlar için "
-                "fallback zinciri gözden geçirilmeli."
+                "[NEXT TIME] For failed steps"
+                "The fallback chain should be reviewed."
             )
 
         return " ".join(lines)

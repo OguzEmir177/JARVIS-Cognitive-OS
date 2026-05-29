@@ -22,7 +22,7 @@ def test_consolidate():
     
     mock_memory.save_memory.assert_called_once()
     args, kwargs = mock_memory.save_memory.call_args
-    assert "GOOGLE_SEARCH 2 kez kullanıldı, 2 başarılı 0 başarısız" in kwargs["text"]
+    assert "GOOGLE_SEARCH used 2 times, 2 successful 0 unsuccessful" in kwargs["text"]
     assert kwargs["memory_type"] == "semantic"
     assert kwargs["metadata"]["importance"] == 0.6
 

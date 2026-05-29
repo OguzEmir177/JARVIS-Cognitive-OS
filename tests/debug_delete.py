@@ -19,18 +19,18 @@ async def main():
     engine.plan_executor.last_active_file = None
 
     # Create
-    await engine.process_input('masaüstünde jarvis_regression_test.txt oluştur')
+    await engine.process_input('create jarvis_regression_test.txt on desktop')
     await asyncio.sleep(1)
     print(f'After CREATE: pe.laf={engine.plan_executor.last_active_file}, exists={target.exists()}')
 
     # Write
-    await engine.process_input('jarvis_regression_test.txt içine merhaba yaz')
+    await engine.process_input('Type hello in jarvis_regression_test.txt')
     await asyncio.sleep(1)
     print(f'After WRITE: pe.laf={engine.plan_executor.last_active_file}')
 
     # Delete
     print(f'Before DELETE: target exists={target.exists()}')
-    await engine.process_input('dosyayı sil')
+    await engine.process_input('delete file')
     await asyncio.sleep(1)
     print(f'After DELETE: target exists={target.exists()}')
     print(f'After DELETE: pe.laf={engine.plan_executor.last_active_file}')

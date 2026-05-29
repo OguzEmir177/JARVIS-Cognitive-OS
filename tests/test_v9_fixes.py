@@ -14,7 +14,7 @@ def test_contact_manager_unknown_profile():
             self.collection = self.Collection()
             
     cm = ContactManager(memory_manager=DummyMemory(), contacts_path="dummy.json")
-    profile = cm.get_profile("Görünmez Adam")
+    profile = cm.get_profile("Invisible Man")
     assert profile["unknown"] is True
     assert profile["phone"] == ""
 
@@ -25,11 +25,11 @@ async def test_whatsapp_tool_unknown_contact():
     # Mock resolve_phone_number
     tool._resolve_phone_number = lambda recipient: recipient
     
-    result = await tool.execute({"target": "Görünmez Adam|selam"})
+    result = await tool.execute({"target": "Invisible Man|hi"})
     assert result.success is False
     assert result.next_action == "REQUEST_CONTACT_NUMBER"
     assert "unknown_name" in result.data
-    assert result.data["unknown_name"] == "Görünmez Adam"
+    assert result.data["unknown_name"] == "Invisible Man"
 
 def test_memory_consolidator_clean():
     class DummyCollection:
@@ -49,11 +49,11 @@ def test_memory_consolidator_clean():
                 ],
                 "documents": [
                     "heijan biz ablama",
-                    "oluşturulan mesaj",
+                    "created message",
                     "[protocol: app_open] whatsapp",
-                    "kullanıcı, bir seyler demek istiyorsa falan filan",
+                    "If the user wants to say something, etc.",
                     "kisa yazi",
-                    "bu metin on bes kelimeden cok daha uzun olmali ki test basarili bir sekilde gecsin degil mi gercekten on bes kelimeyi astik"
+                    "This text must be much longer than fifteen words so that the test can be passed successfully, right? We really exceeded fifteen words."
                 ]
             }
             
@@ -67,9 +67,9 @@ def test_memory_consolidator_clean():
     mc = MemoryConsolidator(DummyMemory())
     mc.clean_corrupted_records()
     deleted = mc.memory.collection.deleted_ids
-    assert "1" in deleted # heijan var
-    assert "2" in deleted # oluşturulan mesaj var
+    assert "1" in deleted # there is heijan
+    assert "2" in deleted # there is a message created
     assert "3" in deleted # [protocol: var
-    assert "4" in deleted # kullanıcı, var (15 kelimeden kisa oldugu icin de silinir ama kural geregi bastan da yakalanmali)
+    assert "4" in deleted # users, var (it will be deleted because it is shorter than 15 words, but as per the rule, it must be caught from the beginning)
     assert "5" in deleted # kisa yazi, 15 kelimeden az
     assert "6" not in deleted # normal, guvenli metin

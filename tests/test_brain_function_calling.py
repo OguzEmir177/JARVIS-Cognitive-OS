@@ -8,12 +8,12 @@ from tools.tool_registry import ToolRegistry
 
 class DummyWhatsAppTool(BaseTool):
     name = "whatsapp_message"
-    description = "WhatsApp üzerinden mesaj gönderir."
+    description = "Sends messages via WhatsApp."
     protocol_tag = "WHATSAPP_MESSAGE"
     parameters = {
-        "kisi": {"type": "string", "description": "Alıcı"},
+        "kisi": {"type": "string", "description": "Buyer"},
         "mesaj": {"type": "string", "description": "Mesaj"},
-        "target": {"type": "string", "description": "Alıcı|Mesaj veya sadece Alıcı (opsiyonel fallback)"}
+        "target": {"type": "string", "description": "Recipient|Message or Recipient only (optional fallback)"}
     }
     domain = "system"
     async def execute(self, params, engine_context=None):
@@ -21,7 +21,7 @@ class DummyWhatsAppTool(BaseTool):
 
 class DummySearchTool(BaseTool):
     name = "google_search"
-    description = "Google'da arama yapar"
+    description = "searches on Google"
     protocol_tag = "GOOGLE_SEARCH"
     parameters = {"query": {"type": "string", "description": "Aranacak terim"}}
     domain = "web"
@@ -54,8 +54,8 @@ async def test_function_calling_whatsapp_args(mock_brain):
     
     mock_brain.client.chat.completions.create = AsyncMock(return_value=mock_response)
     
-    result = await mock_brain.think("Ablama Nasılsın de")
-    assert result == "[PROTOCOL: WHATSAPP_MESSAGE] Ablam|Nasılsın?"
+    result = await mock_brain.think("Tell my sister how are you")
+    assert result == "[PROTOCOL: WHATSAPP_MESSAGE] My sister|How are you?"
 
 @pytest.mark.asyncio
 async def test_function_calling_search_args(mock_brain):
@@ -72,8 +72,8 @@ async def test_function_calling_search_args(mock_brain):
     
     mock_brain.client.chat.completions.create = AsyncMock(return_value=mock_response)
     
-    result = await mock_brain.think("Yemek tarifleri araştır")
-    assert result == "[PROTOCOL: GOOGLE_SEARCH] En iyi yemek tarifleri"
+    result = await mock_brain.think("Search for recipes")
+    assert result == "[PROTOCOL: GOOGLE_SEARCH] The best recipes"
 
 @pytest.mark.asyncio
 async def test_fallback_to_text(mock_brain):
@@ -87,6 +87,6 @@ async def test_fallback_to_text(mock_brain):
     
     mock_brain.client.chat.completions.create = AsyncMock(return_value=mock_response)
     
-    result = await mock_brain.think("Python çalışıp araştırma yap")
+    result = await mock_brain.think("Study Python and do research")
     assert "[PLAN]" in result
     assert "GOOGLE_SEARCH" in result

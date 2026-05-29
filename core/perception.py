@@ -142,10 +142,10 @@ class PerceptionLayer:
                 if significant_change and HAS_CV2 and frame is not None:
                     ui_entities = self._detect_ui_elements(frame)
 
-                # ── LEVEL 5: Deep Semantic Analysis (İPTAL EDİLDİ) ──
+                # ── LEVEL 5: Deep Semantic Analysis (CANCELLED) ──
                 visual_summary = ""
-                # Arka planda sürekli LLM'e fotoğraf atmak API kotalarını bitirdiği için bu özellik kapatıldı.
-                # Görsel analiz SADECE kullanıcı "Ekranı analiz et" komutunu verdiğinde VisionTool üzerinden çalışacak.
+                # This feature has been turned off because constantly sending photos to LLM in the background consumes API quotas.
+                # Visual analysis will ONLY work via VisionTool when the user gives the "Analyze screen" command.
 
                 # ── LEVEL 6: System Metrics ──
                 sys_metrics = self._collect_system_metrics()

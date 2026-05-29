@@ -66,7 +66,7 @@ async def engine(mock_brain, mock_memory, mock_executor):
     )
     
     eng.reflector = MagicMock()
-    eng.reflector.reflect = AsyncMock(return_value={"summary": "Mock hata özeti"})
+    eng.reflector.reflect = AsyncMock(return_value={"summary": "Mock bug summary"})
     
     yield eng
     await eng.shutdown()
@@ -83,9 +83,9 @@ async def test_e2e_successful_replanning_flow(engine, mock_brain, mock_executor)
         if protocol_tag == "GOOGLE_SEARCH":
             return ToolResult(success=True, message="Bulundu")
         elif protocol_tag == "APP_OPEN":
-            return ToolResult(success=False, message="Discord bulunamadı")
+            return ToolResult(success=False, message="Discord not found")
         elif protocol_tag == "WEB_OPEN":
-            return ToolResult(success=True, message="Açıldı")
+            return ToolResult(success=True, message="opened")
         return ToolResult(success=True)
 
     mock_executor.execute_tool.side_effect = mock_execute
@@ -119,13 +119,13 @@ async def test_e2e_graceful_fallback_timeout(engine, mock_brain, mock_executor):
 
 @pytest.mark.asyncio
 async def test_e2e_graceful_fallback_garbage_llm(engine, mock_brain):
-    mock_brain.think.return_value = "Anlamsiz dumduz bir metin"
+    mock_brain.think.return_value = "A meaningless text"
     await engine.process_input("test")
-    engine.io_bridge.speak.assert_called_with("Anlamsiz dumduz bir metin")
+    engine.io_bridge.speak.assert_called_with("A meaningless text")
 
 @pytest.mark.asyncio
 async def test_vision_condition_node(engine, mock_brain, mock_executor):
-    response = "[PLAN]\n1. VISION_INTERPRET Ekran durumunu kontrol et\n[/PLAN]"
+    response = "[PLAN]\n1. VISION_INTERPRET Check display status\n[/PLAN]"
     mock_brain.think.return_value = response
     
     mock_executor.execute_tool.return_value = ToolResult(

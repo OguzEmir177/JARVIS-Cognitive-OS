@@ -1,23 +1,21 @@
-"""
-[V14.0] J.A.R.V.I.S. Adaptive Learning System
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Otonom öğrenme motoru. J.A.R.V.I.S.'in bilinmeyen komutları
-kendi kendine öğrenmesini ve hatalarından ders çıkarmasını sağlar.
+"""[V14.0] J.A.R.V.I.S. Adaptive Learning System
+━━━━━━━━━━━━━━━━━━━━━━━ ━━━━━━━━━━━━━━━━━━━━━━━
+Autonomous learning engine. Unknown commands of J.A.R.V.I.S.
+It allows him to learn on his own and learn from his mistakes.
 
 Capabilities:
-    1. Strategy Recording — Başarılı görevlerin stratejisini kaydeder
-    2. Unknown Command Learning — Bilinmeyen komutları LLM ile çözer ve öğrenir
-    3. Failure Adaptation — Başarısızlık sonrası alternatif yol bulur
-    4. Repeat Detection — Kullanıcının tekrar ettiği komutları tespit eder
-    5. Dynamic Skill Synthesis — Öğrenilen stratejileri kalıcı beceriye dönüştürür
+    1. Strategy Recording — Records the strategy of successful missions
+    2. Unknown Command Learning — Solves and learns unknown commands with LLM
+    3. Failure Adaptation — Finds an alternative path after failure
+    4. Repeat Detection — Detects commands that the user repeats
+    5. Dynamic Skill Synthesis — Turns learned strategies into permanent skills
 
 Architecture:
     AdaptiveLearner
     ├── StrategyStore (JSON-based persistent strategy memory)
     ├── RepeatDetector (short-term command dedup)
     ├── SkillSynthesizer (learned strategies → reusable skills)
-    └── LLM Fallback (asks brain for unknown commands)
-"""
+    └── LLM Fallback (asks brain for unknown commands)"""
 
 import asyncio
 import json
@@ -35,14 +33,14 @@ STRATEGY_DB_PATH = "memory_db/learned_strategies.json"
 
 @dataclass
 class LearnedStrategy:
-    """Öğrenilmiş bir görev stratejisi."""
-    command_pattern: str      # Kullanıcının orijinal komutu (normalize)
-    tool_chain: List[str]     # Kullanılan araç zinciri [APP_OPEN, WEB_SEARCH, ...]
-    arguments: List[str]      # Her araç için argüman
-    success_count: int = 0    # Kaç kez başarılı oldu
-    failure_count: int = 0    # Kaç kez başarısız oldu
-    last_used: float = 0.0    # Son kullanım zamanı
-    created_at: float = 0.0   # Oluşturulma zamanı
+    """A learned mission strategy."""
+    command_pattern: str      # User's original command (normalized)
+    tool_chain: List[str]     # Toolchain used [APP_OPEN, WEB_SEARCH, ...]
+    arguments: List[str]      # Argument for each tool
+    success_count: int = 0    # How many times has it been successful
+    failure_count: int = 0    # How many times did it fail
+    last_used: float = 0.0    # Expiry time
+    created_at: float = 0.0   # Creation time
 
     @property
     def confidence(self) -> float:
@@ -53,29 +51,27 @@ class LearnedStrategy:
 
     @property
     def is_reliable(self) -> bool:
-        """Strateji güvenilir mi? (en az 2 başarı, %70+ başarı oranı)"""
+        """Is the strategy reliable? (at least 2 successes, 70%+ success rate)"""
         return self.success_count >= 2 and self.confidence >= 0.7
 
 
 class AdaptiveLearner:
-    """
-    [V14.0] J.A.R.V.I.S. Otonom Öğrenme Motoru
+    """[V14.0] J.A.R.V.I.S. Autonomous Learning Engine
     
-    Kullanım:
+    Usage:
         learner = AdaptiveLearner()
         
-        # Başarılı strateji kaydet
-        learner.record_success("youtube aç", ["APP_OPEN"], ["youtube"])
+        # Save successful strategy
+        learner.record_success("open youtube", ["APP_OPEN"], ["youtube"])
         
-        # Sonraki sefer aynı komut geldiğinde
-        strategy = learner.find_strategy("youtube'u aç")
+        # Next time the same command comes
+        strategy = learner.find_strategy("open youtube")
         if strategy:
-            # Doğrudan stratejiyi uygula
+            # Apply strategy directly
             ...
         
-        # Bilinmeyen komut için LLM'den öğren
-        plan = await learner.learn_unknown_command(brain, "ekranı kaydet", available_tools)
-    """
+        # Learn from LLM for unknown command
+        plan = await learner.learn_unknown_command(brain, "record screen", available_tools)"""
 
     def __init__(self):
         self.strategies: Dict[str, LearnedStrategy] = {}
@@ -89,19 +85,17 @@ class AdaptiveLearner:
 
     def record_success(self, user_input: str, tools_used: List[str], 
                        arguments: List[str]) -> None:
-        """
-        Başarılı bir görevin stratejisini kaydeder.
-        Aynı komut tekrar geldiğinde bu strateji öncelikle uygulanır.
-        """
+        """Records the strategy of a successful mission.
+        When the same command comes again, this strategy is applied first."""
         key = self._normalize_command(user_input)
         
         if key in self.strategies:
             strategy = self.strategies[key]
             strategy.success_count += 1
             strategy.last_used = time.time()
-            # Eğer farklı bir tool chain kullanıldıysa ve bu da başarılıysa, güncelle
+            # If a different tool chain was used and it was successful, update
             if tools_used != strategy.tool_chain:
-                # Yeni chain daha kısaysa tercih et
+                # Prefer the new chain if it is shorter
                 if len(tools_used) <= len(strategy.tool_chain):
                     strategy.tool_chain = tools_used
                     strategy.arguments = arguments
@@ -117,10 +111,10 @@ class AdaptiveLearner:
         
         self._prune_strategies()
         self._schedule_save()
-        logger.info(f"[ÖĞRENME] Strateji kaydedildi: '{key}' → {tools_used}")
+        logger.info(f"[LEARNING] Strategy saved: '{key}' → {tools_used}")
 
     def record_failure(self, user_input: str, tools_used: List[str]) -> None:
-        """Başarısız stratejiyi kaydeder (gelecekte aynı yolu tekrarlamamak için)."""
+        """Saves the failed strategy (to avoid repeating the same path in the future)."""
         key = self._normalize_command(user_input)
         
         if key in self.strategies:
@@ -128,32 +122,30 @@ class AdaptiveLearner:
             self.strategies[key].last_used = time.time()
             self._prune_strategies()
             self._schedule_save()
-            logger.info(f"[ÖĞRENME] Başarısız strateji kaydedildi: '{key}' (failures={self.strategies[key].failure_count})")
+            logger.info(f"[LEARNING] Failed strategy recorded: '{key}' (failures={self.strategies[key].failure_count})")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     #  STRATEGY LOOKUP
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def find_strategy(self, user_input: str) -> Optional[LearnedStrategy]:
-        """
-        Kullanıcı komutuyla eşleşen öğrenilmiş strateji arar.
+        """It searches for a learned strategy that matches the user command.
         
-        Eşleştirme: 
-          1. Exact match (normalize edilmiş)
-          2. Fuzzy match (kelime kesişimi %60+)
+        Matching: 
+          1. Exact match (normalized)
+          2. Fuzzy match (word intersection 60%+)
         
-        Returns: LearnedStrategy veya None
-        """
+        Returns: LearnedStrategy or None"""
         key = self._normalize_command(user_input)
         
         # 1. Exact match
         if key in self.strategies:
             strategy = self.strategies[key]
             if strategy.is_reliable:
-                logger.info(f"[ÖĞRENME] Exact match bulundu: '{key}' → {strategy.tool_chain} (güven={strategy.confidence:.0%})")
+                logger.info(f"[LEARNING] Exact match found: '{key}' → {strategy.tool_chain} (trust={strategy.confidence:.0%})")
                 return strategy
         
-        # 2. Fuzzy match — kelime kesişimi
+        # 2. Fuzzy match — word intersection
         input_words = set(key.split())
         if len(input_words) < 2:
             return None
@@ -173,7 +165,7 @@ class AdaptiveLearner:
                 best_overlap = overlap
         
         if best_match:
-            logger.info(f"[ÖĞRENME] Fuzzy match bulundu: '{key}' ≈ '{best_match.command_pattern}' (overlap={best_overlap:.0%})")
+            logger.info(f"[LEARNING] Fuzzy match found: '{key}' ≈ '{best_match.command_pattern}' (overlap={best_overlap:.0%})")
             return best_match
         
         return None
@@ -184,31 +176,29 @@ class AdaptiveLearner:
 
     async def learn_unknown_command(self, brain, user_input: str, 
                                      available_tools: List[str]) -> Optional[Dict[str, Any]]:
-        """
-        Bilinmeyen bir komutu LLM'e sorarak öğrenir.
+        """Learns an unknown command by asking LLM.
         
-        Iron Dome bilinmeyen protokol engellediğinde çağrılır.
-        LLM'e "mevcut araçlarla bu komutu nasıl yapabilirim?" diye sorar.
+        Called when Iron Dome blocks unknown protocol.
+        I asked LLM "how can I do this command with the tools available?" he asks.
         
         Returns:
-            {"tool": "APP_OPEN", "argument": "notepad"} veya None
-        """
+            {"tool": "APP_OPEN", "argument": "notepad"} or None"""
         tools_list = ", ".join(available_tools)
         
         prompt = (
-            f"[SİSTEM TALİMATI — ARAÇ SEÇİMİ]\n"
-            f"Kullanıcı şunu istedi: \"{user_input}\"\n"
-            f"Mevcut araçların: {tools_list}\n\n"
-            f"Bu isteği yerine getirmek için hangi aracı hangi argümanla kullanmalısın?\n"
-            f"SADECE şu JSON formatında cevap ver, başka bir şey yazma:\n"
+            f"[SYSTEM INSTRUCTIONS – TOOL SELECTION]\n"
+            f"User requested: \"{user_input}\"\n"
+            f"Available vehicles: {tools_list}\n\n"
+            f"Which tool should you use with which argument to fulfill this request?\n"
+            f"Answer ONLY in the following JSON format, do not write anything else:\n"
             f'{{\"tool\": \"TOOL_TAG\", \"argument\": \"argüman\"}}\n'
-            f"Eğer hiçbir araçla yapılamıyorsa: {{\"tool\": \"SPEAK\", \"argument\": \"Bu işlemi yapma yeteneğim henüz yok.\"}}"
+            f"If it can't be done with any tool: {{\"tool\": \"SPEAK\", \"argument\": \"Bu işlemi yapma yeteneğim henüz yok.\"}}"
         )
         
         try:
             response = await brain.think(prompt, bypass_history=True)
             
-            # JSON çıkar
+            # output JSON
             json_match = re.search(r'\{.*?\}', response, re.DOTALL)
             if json_match:
                 data = json.loads(json_match.group())
@@ -216,9 +206,9 @@ class AdaptiveLearner:
                 argument = data.get("argument", "")
                 
                 if tool and tool in available_tools:
-                    logger.info(f"[ÖĞRENME] Bilinmeyen komut çözüldü: '{user_input}' → {tool} {argument}")
+                    logger.info(f"[LEARNING] Unknown command resolved: '{user_input}' → {tool} {argument}")
                     
-                    # Öğrenilen stratejiyi kaydet
+                    # Save learned strategy
                     self.record_success(user_input, [tool], [argument])
                     
                     return {"tool": tool, "argument": argument}
@@ -226,7 +216,7 @@ class AdaptiveLearner:
                     return {"tool": "SPEAK", "argument": argument}
                     
         except Exception as e:
-            logger.warning(f"[ÖĞRENME] Bilinmeyen komut çözülemedi: {e}")
+            logger.warning(f"[LEARNING] Unknown command could not be resolved: {e}")
         
         return None
 
@@ -235,24 +225,22 @@ class AdaptiveLearner:
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def detect_repeat(self, user_input: str) -> Optional[str]:
-        """
-        Kullanıcının kısa süre içinde aynı komutu tekrar edip etmediğini kontrol eder.
+        """It checks whether the user repeats the same command in a short time.
         
-        Logda görüldüğü gibi: kullanıcı "naber.txt oluştur" yazıyor, yanıt yok,
-        15 saniye sonra tekrar yazıyor. Bu, önceki denemenin başarısız olduğu anlamına gelir.
+        As seen in the log: user writes "create whats up.txt", no response,
+        15 seconds later it writes again. This means the previous attempt failed.
         
         Returns:
-            Önceki komutun task_id'si (tekrar varsa) veya None
-        """
+            The task_id of the previous command (if any again) or None"""
         key = self._normalize_command(user_input)
         now = time.time()
         
-        # Son 30 saniye içinde aynı komut var mı?
+        # Is there the same command in the last 30 seconds?
         for cmd in reversed(self._recent_commands):
             if now - cmd["time"] > 30:
                 break
             if cmd["key"] == key:
-                logger.info(f"[ÖĞRENME] TEKRAR TESPİT EDİLDİ: '{key}' ({now - cmd['time']:.0f}s önce de girildi)")
+                logger.info(f"[LEARNING] DETECTED AGAIN: '{key}' (also entered {now - cmd['time']:.0f}s ago)")
                 return cmd.get("task_id")
         
         # Yeni komutu kaydet
@@ -263,7 +251,7 @@ class AdaptiveLearner:
         return None
 
     def update_recent_task_id(self, user_input: str, task_id: str) -> None:
-        """Son komutun task_id'sini günceller (repeat detection için)."""
+        """Updates the task_id of the last command (for repeat detection)."""
         key = self._normalize_command(user_input)
         for cmd in reversed(self._recent_commands):
             if cmd["key"] == key:
@@ -275,27 +263,25 @@ class AdaptiveLearner:
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def get_learned_rules_prompt(self, limit: int = 10) -> str:
-        """
-        Öğrenilmiş stratejileri LLM prompt'una enjekte edilebilecek
-        format da döndürür. Brain'in system_injection'ına eklenir.
-        """
+        """Learned strategies can be injected into the LLM prompt
+        It also returns format. It is added to Brain's system_injection."""
         reliable = [s for s in self.strategies.values() if s.is_reliable]
         if not reliable:
             return ""
         
-        # En çok kullanılan ve en güvenilir stratejileri seç
+        # Choose the most used and most reliable strategies
         reliable.sort(key=lambda s: (-s.success_count, -s.confidence))
         top = reliable[:limit]
         
-        lines = ["[ÖĞRENİLMİŞ STRATEJİLER]"]
+        lines = ["[LEARNED STRATEGIES]"]
         for s in top:
             tools_str = " → ".join(s.tool_chain)
-            lines.append(f"  • '{s.command_pattern}' → {tools_str} (başarı: {s.success_count}x)")
+            lines.append(f"• '{s.command_pattern}' → {tools_str} (success: {s.success_count}x)")
         
         return "\n".join(lines)
 
     def get_stats(self) -> Dict[str, Any]:
-        """Öğrenme sistemi istatistikleri."""
+        """Learning system statistics."""
         total = len(self.strategies)
         reliable = sum(1 for s in self.strategies.values() if s.is_reliable)
         total_successes = sum(s.success_count for s in self.strategies.values())
@@ -315,22 +301,20 @@ class AdaptiveLearner:
 
     @staticmethod
     def _normalize_command(text: str) -> str:
-        """
-        Komutu normalize eder — küçük harf, gereksiz boşluk temizle,
-        Türkçe suffix'leri basitleştir.
-        """
+        """Normalizes the command — remove lowercase, unnecessary spaces,
+        Simplify Turkish suffixes."""
         text = text.strip().lower()
-        # Çoklu boşlukları tekle
+        # Skip multiple spaces
         text = re.sub(r'\s+', ' ', text)
-        # Yaygın Türkçe suffix'leri kaldır (basit stemming)
-        text = re.sub(r"'?[yıiuü]$", "", text)  # "chrome'u" → "chrome"
-        text = re.sub(r"'?[yıiuü]n[ıiuü]$", "", text)  # "chrome'unu" → "chrome"
+        # Remove common Turkish suffixes (simple stemming)
+        text = re.sub(r"'?[yiiuü]$", "", text)  # "chrome'u" → "chrome"
+        text = re.sub(r"'?[yiiuü]n[ıiuü]$", "", text)  # "chrome'unu" → "chrome"
         return text.strip()
 
     def _prune_strategies(self, max_strategies: int = 200) -> None:
-        """Memory Leak'i önlemek için en az kullanılan/güvenilmeyen stratejileri budar."""
+        """Prunes out the least used/untrusted strategies to prevent Memory Leak."""
         if len(self.strategies) > max_strategies:
-            # Güvenilirlik ve son kullanım zamanına göre sırala
+            # Sort by reliability and expiration time
             sorted_strats = sorted(
                 self.strategies.values(), 
                 key=lambda s: (s.is_reliable, s.last_used), 
@@ -339,21 +323,21 @@ class AdaptiveLearner:
             self.strategies = {s.command_pattern: s for s in sorted_strats[:max_strategies]}
 
     def _load_strategies(self) -> None:
-        """Strateji veritabanını dosyadan yükler (Fail-Fast)."""
+        """Loads the strategy database from file (Fail-Fast)."""
         try:
             if os.path.exists(STRATEGY_DB_PATH):
                 with open(STRATEGY_DB_PATH, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     for key, sdata in data.items():
                         self.strategies[key] = LearnedStrategy(**sdata)
-                logger.info(f"[ÖĞRENME] {len(self.strategies)} strateji yüklendi.")
+                logger.info(f"[LEARNING] {len(self.strategies)} strategy loaded.")
         except json.JSONDecodeError as e:
-            logger.error(f"[ÖĞRENME] Strateji DB bozuk (JSON hatası): {e} — Temiz başlıyor.")
+            logger.error(f"[LEARNING] Strategy DB is corrupt (JSON error): {e} — Starting clean.")
         except Exception as e:
-            logger.error(f"[ÖĞRENME] Strateji yükleme kritik hatası: {e}")
+            logger.error(f"[LEARN] Critical error loading strategy: {e}")
 
     def _save_strategies(self) -> None:
-        """Strateji veritabanını dosyaya kaydeder (senkron — run_in_executor ile çağırılmalı)."""
+        """Saves the strategy database to file (synchronous — must be called with run_in_executor)."""
         try:
             os.makedirs(os.path.dirname(STRATEGY_DB_PATH), exist_ok=True)
             data = {}
@@ -362,19 +346,17 @@ class AdaptiveLearner:
             with open(STRATEGY_DB_PATH, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            # debug→error: Disk yazma hatalarını asla sessizce yutma (Fail-Fast prensibi)
-            logger.error(f"[ÖĞRENME] Strateji kaydetme HATASI: {e}")
+            # debug→error: Never swallow disk write errors silently (Fail-Fast principle)
+            logger.error(f"[LEARNING] ERROR saving strategy: {e}")
 
     def _schedule_save(self) -> None:
-        """
-        [V14.1] Async-Safe Disk Yazma Zamanlayıcısı.
-        Event loop varsa I/O'yu ThreadPool'a atar (event-loop bloklamasını önler).
-        Loop yoksa (test/startup) direkt senkron çalışır.
-        """
+        """[V14.1] Async-Safe Disk Write Scheduler.
+        If there is an event loop, it assigns I/O to the ThreadPool (prevents event-loop blocking).
+        If there is no loop (test/startup), it runs directly synchronously."""
         try:
             loop = asyncio.get_running_loop()
-            # Async bağlamda: I/O'yu thread pool'a at
+            # In an async context: throw I/O to thread pool
             loop.run_in_executor(None, self._save_strategies)
         except RuntimeError:
-            # Event loop yok (ör: test ortamı, __init__) — senkron yaz
+            # No event loop (e.g. test environment, __init__) — write synchronous
             self._save_strategies()

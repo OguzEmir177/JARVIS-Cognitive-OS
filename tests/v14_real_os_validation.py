@@ -47,9 +47,9 @@ async def run_validation():
     
     # 1. APP_OPEN Tests
     app_tests = [
-        {"input": "youtube aç", "check_process": ["chrome", "msedge"]},
-        {"input": "hesap makinesi aç", "check_process": ["calc", "calculator"]},
-        {"input": "chrome aç", "check_process": ["chrome"]},
+        {"input": "open youtube", "check_process": ["chrome", "msedge"]},
+        {"input": "open calculator", "check_process": ["calc", "calculator"]},
+        {"input": "open chrome", "check_process": ["chrome"]},
     ]
     
     for t in app_tests:
@@ -77,41 +77,41 @@ async def run_validation():
     if os.path.exists(target_path): 
         os.remove(target_path)
         
-    print("\n> [TEST] Girdi: 'masaüstünde test_jarvis.txt oluştur'")
+    print("\n> [TEST] Input: 'create test_jarvis.txt on desktop'")
     total_tests += 1
-    await engine.process_input("masaüstünde test_jarvis.txt oluştur")
+    await engine.process_input("create test_jarvis.txt on desktop")
     time.sleep(2)
     if os.path.exists(target_path) and check_log("FILE_CREATE"):
-        print(f"   [PASS] Dosya yaratıldı (FILE_CREATE).")
+        print(f"[PASS] File created (FILE_CREATE).")
         passed_tests += 1
     else:
-        print(f"   [FAIL] Dosya yaratılamadı veya log hatalı.")
+        print(f"[FAIL] The file could not be created or the log is incorrect.")
 
-    print("\n> [TEST] Girdi: 'içine merhaba yaz' (Context-Aware Test)")
+    print("\n> [TEST] Input: 'type hello in' (Context-Aware Test)")
     total_tests += 1
-    await engine.process_input("içine merhaba yaz")
+    await engine.process_input("write hello in it")
     time.sleep(2)
     with open(target_path, "r", encoding="utf-8") as f:
         content = f.read()
     if "merhaba" in content.lower() and check_log("FILE_WRITE"):
-        print(f"   [PASS] Dosyaya yazıldı (FILE_WRITE) ve context çalıştı.")
+        print(f"[PASS] Written to file (FILE_WRITE) and context worked.")
         passed_tests += 1
     else:
-        print(f"   [FAIL] Dosyaya yazılamadı veya log hatalı. Content: {content}")
+        print(f"[FAIL] Failed to write to file or log is incorrect. Content: {content}")
 
-    print("\n> [TEST] Girdi: 'dosyayı oku'")
+    print("\n> [TEST] Input: 'read file'")
     total_tests += 1
-    await engine.process_input("dosyayı oku")
+    await engine.process_input("read file")
     time.sleep(2)
     if check_log("FILE_READ"):
         print(f"   [PASS] Dosya okundu (FILE_READ).")
         passed_tests += 1
     else:
-        print(f"   [FAIL] Dosya okunamadı.")
+        print(f"[FAIL] Failed to read file.")
 
-    print("\n> [TEST] Girdi: 'dosyayı sil'")
+    print("\n> [TEST] Input: 'delete file'")
     total_tests += 1
-    await engine.process_input("dosyayı sil")
+    await engine.process_input("delete file")
     time.sleep(2)
     if not os.path.exists(target_path) and check_log("FILE_DELETE"):
         print(f"   [PASS] Dosya silindi (FILE_DELETE).")
@@ -120,15 +120,15 @@ async def run_validation():
         print(f"   [FAIL] Dosya silinemedi.")
 
     # 3. DIRECTORY TESTS
-    print("\n> [TEST] Girdi: 'indirilenler klasörünü aç'")
+    print("\n> [TEST] Input: 'open downloads folder'")
     total_tests += 1
-    await engine.process_input("indirilenler klasörünü aç")
+    await engine.process_input("open downloads folder")
     time.sleep(2)
     if check_log("FOLDER_OPEN"):
-        print(f"   [PASS] Klasör açıldı (FOLDER_OPEN).")
+        print(f"[PASS] Folder opened (FOLDER_OPEN).")
         passed_tests += 1
     else:
-        print(f"   [FAIL] Klasör açılamadı.")
+        print(f"[FAIL] The folder could not be opened.")
 
     print("\n> [TEST] Girdi: 'son indirilen dosya nedir'")
     total_tests += 1
@@ -138,10 +138,10 @@ async def run_validation():
         print(f"   [PASS] Son dosya bulundu (FILE_LATEST).")
         passed_tests += 1
     else:
-        print(f"   [FAIL] Son dosya bulunamadı.")
+        print(f"[FAIL] Latest file not found.")
 
     print("\n==================================================")
-    print(f"=== SONUÇ: {passed_tests}/{total_tests} BAŞARILI ===")
+    print(f"=== RESULT: {passed_tests}/{total_tests} SUCCESSFUL ===")
     print("==================================================")
     
     for k in to_kill:

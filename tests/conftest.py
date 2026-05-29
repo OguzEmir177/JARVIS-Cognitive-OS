@@ -1,8 +1,6 @@
-"""
-[V8.0] Shared Test Fixtures
+"""[V8.0] Shared Test Fixtures
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-pytest conftest — tüm testlerin kullandığı ortak mock'lar ve fixture'lar.
-"""
+pytest conftest — common mocks and fixtures that all tests use."""
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -15,7 +13,7 @@ from core.reflector import Reflector
 
 @pytest.fixture
 def engine_config():
-    """Test için hızlı timeout'lu EngineConfig."""
+    """EngineConfig with fast timeout for testing."""
     return EngineConfig(
         tool_timeout_seconds=5.0,
         brain_timeout_seconds=3.0,
@@ -27,19 +25,19 @@ def engine_config():
 
 @pytest.fixture
 def state_manager():
-    """Temiz bir StateManager instance."""
+    """A clean StateManager instance."""
     return StateManager()
 
 
 @pytest.fixture
 def task_queue():
-    """Temiz bir TaskQueue instance."""
+    """A clean TaskQueue instance."""
     return TaskQueue(maxsize=10)
 
 
 @pytest.fixture
 def mock_brain(engine_config):
-    """Mock GroqBrain — LLM çağrıları yapmaz. [V8.1 Hardened]"""
+    """Mock GroqBrain — Does not make LLM calls. [V8.1 Hardened]"""
     from core.brain import GroqBrain
     brain = MagicMock(spec=GroqBrain)
     brain.think = AsyncMock(return_value="[PROTOCOL: GOOGLE_SEARCH] test")
@@ -72,43 +70,43 @@ def mock_memory():
 
 @pytest.fixture
 def mock_tool_result():
-    """Başarılı bir ToolResult mock'u."""
-    # [V8.1 FIX] BUG #7: 'core.tools' path yanlıştı — asıl kaynak 'tools.base_tool'
-    # Yanlış import isinstance() kontrollerini bozuyor ve test mock'larını production
-    # kodundan koparıyordu.
+    """A successful ToolResult mock."""
+    # [V8.1 FIX] BUG #7: 'core.tools' path was wrong — original source is 'tools.base_tool'
+    # Incorrect import breaks isinstance() checks and prevents test mocks from being produced
+    # was breaking it from the code.
     from tools.base_tool import ToolResult
     return ToolResult(
         success=True,
-        message="İşlem başarılı.",
-        speak="Başarıyla tamamlandı Efendim.",
+        message="The operation is successful.",
+        speak="Completed successfully, Sir.",
     )
 
 
 @pytest.fixture
 def mock_tool_result_fail():
-    """Başarısız bir ToolResult mock'u."""
-    # [V8.1 FIX] BUG #7: Aynı düzeltme — tools.base_tool
+    """A failed ToolResult mock."""
+    # [V8.1 FIX] BUG #7: Same fix — tools.base_tool
     from tools.base_tool import ToolResult
     return ToolResult(
         success=False,
-        message="Araç bulunamadı.",
-        speak="Hata oluştu Efendim.",
+        message="Vehicle not found.",
+        speak="An error has occurred, Sir.",
     )
 
 
 @pytest.fixture
 def reflector(mock_memory, mock_brain):
-    """Gerçek Reflector instance (mock bağımlılıklarla)."""
+    """Real Reflector instance (with mock dependencies)."""
     return Reflector(memory=mock_memory, brain=mock_brain)
 
 
 @pytest.fixture
 def sample_task_state():
-    """Tamamlanmış bir örnek TaskState."""
+    """A completed example is TaskState."""
     import time
     ts = TaskState(
         id="test-001",
-        goal="Google'da Python arat",
+        goal="Search Python on Google",
         status="completed",
         start_time=time.monotonic() - 2.0,
         end_time=time.monotonic(),
@@ -121,7 +119,7 @@ def sample_task_state():
 
 @pytest.fixture
 def failed_task_state():
-    """Başarısız bir örnek TaskState."""
+    """A failed example is TaskState."""
     import time
     ts = TaskState(
         id="test-002",
@@ -129,7 +127,7 @@ def failed_task_state():
         status="failed",
         start_time=time.monotonic() - 3.0,
         end_time=time.monotonic(),
-        last_error="Process bulunamadı",
+        last_error="Process not found",
         tool_history=[
             {"tool": "APP_KILL", "success": False, "duration_ms": 2000},
         ],

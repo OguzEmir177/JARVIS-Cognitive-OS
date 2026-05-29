@@ -1,53 +1,49 @@
-"""
-[V8.0] J.A.R.V.I.S. Centralized Configuration
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Tüm timeout, retry, limit değerleri tek noktada.
+"""[V8.0] J.A.R.V.I.S. Centralized Configuration
+━━━━━━━━━━━━━━━━━━━━━━━ ━━━━━━━━━━━━━━━━━━━━━━━
+All timeout, retry and limit values are at one point.
 
-Tasarım Kararı:
-    Neden dataclass ve .env değil?
-    → Basitlik. Değerler runtime'da değişmez, hardcoded defaults yeter.
-    → İleride .env'den yükleme eklenebilir (genişletilebilirlik).
-    → Groq free tier limitleri sabit (30 req/min).
-"""
+Design Decision:
+    Why dataclass and not .env?
+    → Simplicity. Values ​​do not change at runtime, hardcoded defaults are sufficient.
+    → .env loading may be added in the future (extensibility).
+    → Groq free tier limits are fixed (30 req/min)."""
 
 import os
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
-# [V8.0] Çevre değişkenlerini uygulama başlamadan yükle
+# [V8.0] Load environment variables before application starts
 load_dotenv()
 
 
 def load_config() -> dict:
-    """Çevre değişkenlerini ve temel ayarları yükler (legacy uyumluluk)."""
+    """Loads environment variables and basic settings (legacy compatibility)."""
     load_dotenv()
     return {
         "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
         "ASSISTANT_NAME": "J.A.R.V.I.S.",
-        "MASTER_NAME": "Oğuz Emir",
+        "MASTER_NAME": "Oguz Emir",
     }
 
 
 @dataclass
 class EngineConfig:
-    """
-    ExecutionEngine yapılandırması.
+    """ExecutionEngine configuration.
 
-    Tüm değerler Groq free tier sınırlarına göre ayarlıdır:
+    All values are set according to Groq free tier limits:
         - 30 requests/minute
         - 6000 tokens/minute
         - 14,400 requests/day
 
     Attributes:
-        max_queue_size:         Aynı anda bekleyebilecek maks görev sayısı
-        tool_timeout_seconds:   Tek bir tool çalıştırma timeout'u
-        max_replan_attempts:    Başarısız adımda kaç kez replan denenecek
-        brain_connect_retries:  Brain bağlantısı kaç kez denenecek
-        brain_timeout_seconds:  Tek bir LLM çağrısı timeout'u
-        brain_models:           Fallback model sırası (Groq model ID'leri)
-        reflection_cooldown_s:  İki reflection arası minimum süre
-        max_task_retries:       Tek bir görevin kaç kez retry edilebileceği
-    """
+        max_queue_size: Max number of tasks that can wait simultaneously
+        tool_timeout_seconds: Timeout for a single tool run
+        max_replan_attempts: How many times to replan on failed step
+        brain_connect_retries: How many times will the brain connection be tried?
+        brain_timeout_seconds: Timeout of a single LLM call
+        brain_models: Fallback model order (Groq model IDs)
+        reflection_cooldown_s: Minimum time between two reflections
+        max_task_retries: How many times a single task can be retried"""
 
     # ── Queue & Concurrency ──
     max_queue_size: int = 50
@@ -63,12 +59,12 @@ class EngineConfig:
 
     # ── LLM Model Fallback Chain ──
     brain_models: list = field(default_factory=lambda: [
-        "llama-3.3-70b-versatile", # En gelişmiş model (Llama 3.3)
-        "llama-3.1-70b-versatile", # Güçlü yedek
-        "llama-3.1-8b-instant"     # Hızlı fallback
+        "llama-3.3-70b-versatile", # Most advanced model (Llama 3.3)
+        "llama-3.1-70b-versatile", # Powerful backup
+        "llama-3.1-8b-instant"     # Fast fallback
     ])
-    ping_model: str = None         # Fallback test modeli (None ise brain_models[0] kullanılır)
-    function_calling_enabled: bool = False  # [V9.7] Devre dışı bırakıldı: LLM'in [PLAN] metnini doğrudan üretmesini zorunlu kılar.
+    ping_model: str = None         # Fallback test model (if None, brain_models[0] is used)
+    function_calling_enabled: bool = False  # [V9.7] Disabled: Forces LLM to generate [PLAN] text directly.
 
     # ── Reflection ──
     reflection_cooldown_s: float = 5.0

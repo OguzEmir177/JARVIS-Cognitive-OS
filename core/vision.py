@@ -5,17 +5,15 @@ import logging
 logger = logging.getLogger("JARVIS.Vision")
 
 class JarvisVision:
-    """
-    [V9.0] LOKAL VİZYON MOTORU (Sıfır API, Sıfır Kota)
-    Ekrandaki metinleri (OCR) ve aktif pencereyi okur.
-    """
+    """[V9.0] LOCAL VISION ENGINE (Zero API, Zero Quota)
+    Reads on-screen text (OCR) and the active window."""
     ERROR_SENTINEL = "VISION_HATASI"
 
     def __init__(self):
         self.tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
     def analyze_screen(self) -> str:
-        """Ekrandaki yazıları ve aktif pencereyi lokal olarak okur."""
+        """It reads the text on the screen and the active window locally."""
         try:
             # 1. Aktif Pencereyi Bul
             active_window = "Bilinmeyen Pencere"
@@ -26,32 +24,32 @@ class JarvisVision:
             except:
                 pass
 
-            # 2. Ekrandaki Yazıları Oku (OCR)
+            # 2. Read On Screen (OCR)
             try:
                 import pytesseract
                 pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
                 
                 screenshot = pyautogui.screenshot()
-                # Ekrandaki metni çıkar
+                # Extract text from the screen
                 text = pytesseract.image_to_string(screenshot, lang="tur+eng")
                 
-                # Boşlukları temizle ve ilk 2000 karakteri al (LLM'i boğmamak için)
+                # Clear spaces and get first 2000 characters (to avoid overwhelming LLM)
                 clean_text = " ".join(text.split())[:2000]
                 
                 if not clean_text:
-                    return f"Aktif Pencere: '{active_window}'. Ekranda okunabilir bir metin bulunamadı."
+                    return f"Active Window: '{active_window}'. No readable text was found on the screen."
                     
                 return f"Aktif Pencere: '{active_window}'.\nEkrandaki Metinler: {clean_text}"
                 
             except FileNotFoundError:
-                return f"Aktif Pencere: '{active_window}'. (Not: Ekrandaki yazıları okuyabilmem için bilgisayarınıza 'Tesseract OCR' kurmanız gerekmektedir)."
+                return f"Active Window: '{active_window}'. (Note: In order to read the text on the screen, you need to install 'Tesseract OCR' on your computer)."
             except Exception as e:
-                logger.error(f"OCR Hatası: {e}")
-                return f"Aktif Pencere: '{active_window}'. Metin okuma başarısız oldu."
+                logger.error(f"OCR Error: {e}")
+                return f"Active Window: '{active_window}'. Text reading failed."
                 
         except Exception as e:
-            logger.error(f"[VISION] Lokal analiz başarısız: {e}")
-            return f"Lokal ekran analizi hatası: {e}"
+            logger.error(f"[VISION] Local analysis failed: {e}")
+            return f"Local display analysis error: {e}"
 
     def analyze_screen_for_context(self, context_prompt: str) -> str:
         return self.analyze_screen()

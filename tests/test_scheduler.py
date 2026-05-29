@@ -15,19 +15,17 @@ def mock_engine():
 
 @pytest.mark.asyncio
 async def test_scheduler_sleep_calculation(mock_engine):
-    """
-    Şu anki saniyeye göre uykunun (60 - second) saniye olmasını test eder.
-    """
+    """It tests whether sleep is (60 - seconds) seconds relative to the current seconds."""
     scheduler = JarvisScheduler(mock_engine)
     
-    # Saat 07:59:45 olsun, beklenen uyku süresi 60 - 45 = 15 saniye.
+    # Let it be 07:59:45, expected sleep time is 60 - 45 = 15 seconds.
     test_time = datetime.datetime(2026, 4, 20, 7, 59, 45)
     
     with patch('core.scheduler.datetime') as mock_dt, \
          patch('core.scheduler.asyncio.sleep') as mock_sleep:
         
         mock_dt.now.return_value = test_time
-        # Döngüyü kırmak için ilk sleep çağrısında CancelledError fırlatıyoruz
+        # We throw CancelledError on the first sleep call to break the loop
         mock_sleep.side_effect = asyncio.CancelledError
         
         await scheduler.run()
@@ -36,13 +34,11 @@ async def test_scheduler_sleep_calculation(mock_engine):
 
 @pytest.mark.asyncio
 async def test_scheduler_trigger(mock_engine):
-    """
-    Doğru zamana geldiğinde görevi tetikliyor mu ve sonrasında doğru 
-    sürede uykuya dalıyor mu test eder.
-    """
+    """Does it trigger the mission when it's the right time and then run it correctly? 
+    It tests whether one falls asleep in a short time."""
     scheduler = JarvisScheduler(mock_engine)
     
-    # Saat 08:00:30 u test ediyoruz. (60 - 30 = 30 sn uymalı ve brifing tetiklemeli)
+    # We are testing at 08:00:30. (60 - 30 = 30 seconds should comply and briefing should be triggered)
     test_time = datetime.datetime(2026, 4, 20, 8, 0, 30)
     
     with patch('core.scheduler.datetime') as mock_dt, \
@@ -53,9 +49,9 @@ async def test_scheduler_trigger(mock_engine):
         
         await scheduler.run()
         
-        # Görevin tetiklendiğinden emin olalım
+        # Let's make sure the task is triggered
         mock_engine.process_input.assert_called_with(
-            "Sabah brifingi yap: Efendime günaydın de, bugünün tarihini söyle ve dünkü önemli olayları hafızandan özetle."
+            "Have a morning briefing: Say good morning to Sir, tell him today's date, and summarize yesterday's important events from memory."
         )
-        # Ve 30 saniye uyumalı
+        # And sleep for 30 seconds
         mock_sleep.assert_called_once_with(30)

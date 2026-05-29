@@ -45,7 +45,7 @@ class MemoryConsolidator:
 
             for tool, stats in grouped_records.items():
                 if stats["total"] > 0:
-                    summary = f"Geçen hafta {tool} {stats['total']} kez kullanıldı, {stats['success']} başarılı {stats['failed']} başarısız."
+                    summary = f"Used {tool} {stats['total']} times last week, {stats['success']} successful {stats['failed']} unsuccessful."
                     self.memory.save_memory(
                         text=summary,
                         memory_type="semantic",
@@ -109,7 +109,7 @@ class MemoryConsolidator:
             return
 
         try:
-            # where filtresi KALDIRILDI — tüm kayıtları tara (memory_type fark etmez)
+            # where filter REMOVED — scan all records (regardless of memory_type)
             results = self.memory.collection.get(
                 include=["metadatas", "documents"]
             )
@@ -128,13 +128,13 @@ class MemoryConsolidator:
                 
                 if (
                     "heijan" in doc_lower 
-                    or "oluşturulan mesaj" in doc_lower
+                    or "created message" in doc_lower
                     or "[protocol:" in doc_lower
-                    or doc_lower.startswith("kullanıcı,")
+                    or doc_lower.startswith("user,")
                     or "whatsapp_dictate" in doc_lower
                     or "app_navigate" in doc_lower
                     or "905059" in doc_lower
-                    or "numarasını kullan" in doc_lower
+                    or "use your number" in doc_lower
                 ):
                     to_delete_ids.append(doc_id)
                     continue

@@ -21,14 +21,14 @@ async def main():
 
     print(f'Target: {target}')
     print('=== FILE_CREATE ===')
-    await engine.process_input('masaüstünde jarvis_regression_test.txt oluştur')
+    await engine.process_input('create jarvis_regression_test.txt on desktop')
     await asyncio.sleep(1)
     print(f'pe.last_active_file: {engine.plan_executor.last_active_file}')
     print(f'File exists: {target.exists()}')
     print()
 
     print('=== FILE_WRITE (explicit) ===')
-    await engine.process_input('jarvis_regression_test.txt içine merhaba yaz')
+    await engine.process_input('Type hello in jarvis_regression_test.txt')
     await asyncio.sleep(1)
     print(f'pe.last_active_file: {engine.plan_executor.last_active_file}')
     if target.exists():

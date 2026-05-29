@@ -1,16 +1,14 @@
-"""
-[V8.0] J.A.R.V.I.S. Plan Parser Test Suite
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4+1 katmanlı plan parser'ın robustness testleri.
+"""[V8.0] J.A.R.V.I.S. Plan Parser Test Suite
+━━━━━━━━━━━━━━━━━━━━━ ━━━━━━━━━━━━━━━━━━━━━━
+Robustness tests of 4+1 layer plan parser.
 
-Test Kategorileri:
-    - Katman 1: PLAN keyword + numaralandırılmış satırlar
-    - Katman 2: [PLAN]...[/PLAN] bloğu
-    - Katman 3: Tek satırlı [PLAN: TAG(arg) -> TAG(arg)]
-    - Katman 4: Fallback — sadece protokol etiketlerini topla
-    - Edge cases: bozuk/yarım/garip LLM çıktıları
-    - Filtreler: WhatsApp dedup, cleanup guard
-"""
+Test Categories:
+    - Layer 1: PLAN keyword + numbered rows
+    - Layer 2: [PLAN]...[/PLAN] block
+    - Layer 3: Single line [PLAN: TAG(arg) -> TAG(arg)]
+    - Layer 4: Fallback — collect only protocol tags
+    - Edge cases: broken/incomplete/strange LLM outputs
+    - Filters: WhatsApp dedup, cleanup guard"""
 
 import pytest
 from core.planner import parse_plan, PlanNode, ExecutionPlan, _apply_filters
@@ -22,18 +20,17 @@ from core.planner import parse_plan, PlanNode, ExecutionPlan, _apply_filters
 
 
 class TestPlanParserLayer0:
-    """Katman 0: JSON tabanlı tree yapısını test eder."""
+    """Layer 0: Tests the JSON-based tree structure."""
 
     def test_json_tree_parsing(self):
-        """JSON tabanlı ağaç düzgün parse edilmeli."""
-        response = '''
-```json
+        """The JSON-based tree must be parsed properly."""
+        response = '''```json
 {
-  "hedef": "YouTube'da video bul ve izle",
-  "alt_gorevler": [
+  "target": "Find and watch videos on YouTube",
+  "sub_tasks": [
     {
-      "hedef": "Videoyu ara",
-      "adimlar": [
+      "target": "Search video",
+      "steps": [
         {"protocol": "YT_SEARCH", "arg": "python tutorial"}
       ]
     },
@@ -44,27 +41,26 @@ class TestPlanParserLayer0:
     }
   ]
 }
-```
-'''
+```'''
         plan = parse_plan(response)
         assert plan is not None
-        assert plan.original_request == "YouTube'da video bul ve izle"
+        assert plan.original_request == "Find and watch videos on YouTube"
         assert plan.total_steps == 2
         
-        # İlk alt görev kendi içinde adım içeriyor
+        # The first subtask contains steps within itself
         assert plan.steps[0].goal == "Videoyu ara"
         assert len(plan.steps[0].sub_nodes) == 1
         assert plan.steps[0].sub_nodes[0].protocol_tag == "YT_SEARCH"
         assert plan.steps[0].sub_nodes[0].argument == "python tutorial"
         
-        # İkinci alt görev adımlar yerine direkt kendi üstünde protocol tutuyor
-        assert plan.steps[1].goal == "Videoyu aç"
+        # The second subtask keeps a protocol directly above itself instead of steps
+        assert plan.steps[1].goal == "Open video"
         assert plan.steps[1].protocol_tag == "YT_PLAY"
         assert plan.steps[1].argument == "python tutorial"
         assert len(plan.steps[1].sub_nodes) == 0
 
     def test_json_parsing_missing_keys_fallback(self):
-        """Hatalı JSON (eksik anahtarlar = fallback)."""
+        """Bad JSON (missing keys = fallback)."""
         response = '''
 ```json
 {
@@ -78,22 +74,22 @@ class TestPlanParserLayer0:
         plan = parse_plan(response)
         assert plan is not None
         assert plan.total_steps == 1
-        # Katman 1/2'ye fallback yaptı
+        # Fallback to Layer 1/2
         assert plan.steps[0].protocol_tag == "GOOGLE_SEARCH"
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  KATMAN 1: PLAN kelimesi + numaralandırılmış satırlar
+# LAYER 1: word PLAN + numbered lines
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 class TestPlanParserLayer1:
-    """Katman 1: PLAN kelimesi geçiyor + numaralandırılmış adımlar."""
+    """Layer 1: Word PLAN appears + numbered steps."""
 
     def test_standard_numbered_plan_with_protocol_prefix(self):
-        """[PROTOCOL: X] prefix'li numaralandırılmış satırlar."""
+        """Numbered lines prefixed with [PROTOCOL: X]."""
         response = (
-            "İşte PLAN:\n"
+            "Here is the PLAN:\n"
             "1. [PROTOCOL: GOOGLE_SEARCH] Python dersleri\n"
             "2. [PROTOCOL: YT_SEARCH] asyncio tutorial\n"
             "3. [PROTOCOL: APP_OPEN] Discord"
@@ -110,9 +106,9 @@ class TestPlanParserLayer1:
         assert plan.steps[2].argument == "Discord"
 
     def test_plan_keyword_without_brackets(self):
-        """PLAN kelimesi var ama [PLAN] formatı yok."""
+        """There is the word PLAN but there is no format [PLAN]."""
         response = (
-            "Size bir plan hazırladım:\n"
+            "I prepared a plan for you:\n"
             "1. GOOGLE_SEARCH hava durumu\n"
             "2. WHATSAPP_MESSAGE Ablam"
         )
@@ -124,13 +120,13 @@ class TestPlanParserLayer1:
         assert plan.steps[0].argument == "hava durumu"
 
     def test_plan_with_extra_noise_text(self):
-        """LLM'in plan etrafına eklediği gereksiz metin ignorlanmalı."""
+        """The unnecessary text LLM added around the plan should be ignored."""
         response = (
             "Tabii efendim, hemen hallediyorum!\n"
             "PLAN:\n"
             "1. [PROTOCOL: YT_PLAY] lofi beats\n"
             "2. [PROTOCOL: WEB_OPEN] google.com\n"
-            "Başka bir şey ister misiniz?"
+            "Would you like anything else?"
         )
         plan = parse_plan(response)
 
@@ -140,12 +136,12 @@ class TestPlanParserLayer1:
         assert plan.steps[1].argument == "google.com"
 
     def test_plan_steps_sorted_by_number(self):
-        """Adımlar numara sırasına göre sıralanmalı (LLM karıştırsa bile)."""
+        """The steps should be listed in numerical order (even if the LLM confuses them)."""
         response = (
             "PLAN:\n"
             "3. APP_OPEN Discord\n"
             "1. GOOGLE_SEARCH test\n"
-            "2. YT_SEARCH müzik"
+            "2. YT_SEARCH music"
         )
         plan = parse_plan(response)
 
@@ -156,12 +152,12 @@ class TestPlanParserLayer1:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  KATMAN 2: [PLAN]...[/PLAN] bloğu
+# LAYER 2: [PLAN]...[/PLAN] block
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 class TestPlanParserLayer2:
-    """Katman 2: Standart [PLAN]...[/PLAN] bloğu."""
+    """Layer 2: Standard [PLAN]...[/PLAN] block."""
 
     def test_multiline_plan_block(self):
         response = (
@@ -178,11 +174,11 @@ class TestPlanParserLayer2:
         assert plan.steps[1].protocol_tag == "APP_OPEN"
 
     def test_plan_block_with_empty_lines(self):
-        """[PLAN] bloğu içinde boş satırlar olabilir — atlanmalı."""
+        """There may be blank lines within the [PLAN] block — they should be skipped."""
         response = (
             "[PLAN]\n"
             "\n"
-            "1. YT_SEARCH müzik\n"
+            "1. YT_SEARCH music\n"
             "\n"
             "2. APP_OPEN Spotify\n"
             "\n"
@@ -194,7 +190,7 @@ class TestPlanParserLayer2:
         assert plan.total_steps == 2
 
     def test_plan_block_with_protocol_prefix(self):
-        """[PLAN] bloğu içinde [PROTOCOL:] prefix'li satırlar da çalışmalı."""
+        """Lines with [PROTOCOL:] prefix in the [PLAN] block should also work."""
         response = (
             "[PLAN]\n"
             "[PROTOCOL: GOOGLE_SEARCH] test query\n"
@@ -208,15 +204,15 @@ class TestPlanParserLayer2:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  KATMAN 3: Tek satırlı [PLAN: TAG(arg) -> TAG(arg)]
+# LAYER 3: Single line [PLAN: TAG(arg) -> TAG(arg)]
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 class TestPlanParserLayer3:
-    """Katman 3: Tek satırlık kompakt plan formatı."""
+    """Layer 3: Compact one-line plan format."""
 
     def test_single_line_plan_with_arrow(self):
-        """ASCII ok (->) ile."""
+        """with ASCII arrow (->)."""
         response = "[PLAN: GOOGLE_SEARCH(Python) -> APP_OPEN(Discord)]"
         plan = parse_plan(response)
 
@@ -228,7 +224,7 @@ class TestPlanParserLayer3:
         assert plan.steps[1].argument == "Discord"
 
     def test_single_line_plan_with_unicode_arrow(self):
-        """→ (Unicode ok) ile de çalışmalı."""
+        """Should also work with → (Unicode arrow)."""
         response = "[PLAN: YT_PLAY(lofi) → WEB_OPEN(google.com)]"
         plan = parse_plan(response)
 
@@ -237,7 +233,7 @@ class TestPlanParserLayer3:
         assert plan.steps[0].protocol_tag == "YT_PLAY"
 
     def test_single_line_no_args(self):
-        """Argümansız tag'ler de çalışmalı."""
+        """Tags without arguments should also work."""
         response = "[PLAN: VISION -> APP_OPEN(Discord)]"
         plan = parse_plan(response)
 
@@ -253,14 +249,14 @@ class TestPlanParserLayer3:
 
 
 class TestPlanParserLayer4:
-    """Katman 4: Yapı bulunamadı ama birden fazla protokol var."""
+    """Layer 4: No structure found but more than one protocol exists."""
 
     def test_multiple_protocol_tags_without_plan(self):
-        """Birden fazla [PROTOCOL:] varsa sıralı adımlar olarak topla."""
+        """If there is more than one [PROTOCOL:], add them as sequential steps."""
         response = (
-            "Hemen yapıyorum efendim.\n"
+            "I'm doing it right away, sir.\n"
             "[PROTOCOL: GOOGLE_SEARCH] Python\n"
-            "Sonra da şunu yapacağım:\n"
+            "Then I will do this:\n"
             "[PROTOCOL: APP_OPEN] Discord"
         )
         plan = parse_plan(response)
@@ -277,30 +273,30 @@ class TestPlanParserLayer4:
 
 
 class TestPlanParserEdgeCases:
-    """Kenar durumlar ve hata dayanıklılığı."""
+    """Edge cases and fault tolerance."""
 
     def test_no_plan_returns_none(self):
-        """Plan yoksa None dönmeli."""
-        response = "Merhaba efendim, size nasıl yardımcı olabilirim?"
+        """If there is no plan, None should be returned."""
+        response = "Hello sir, how can I help you?"
         plan = parse_plan(response)
         assert plan is None
 
     def test_single_protocol_not_treated_as_plan(self):
-        """Tek protokol plan değildir — None dönmeli."""
+        """A single protocol is not a plan — it should return None ."""
         response = "[PROTOCOL: GOOGLE_SEARCH] Python"
         plan = parse_plan(response)
         assert plan is None
 
     def test_empty_string(self):
-        """Boş string → None."""
+        """Empty string → None."""
         assert parse_plan("") is None
 
     def test_only_whitespace(self):
-        """Sadece boşluk → None."""
+        """Just space → None."""
         assert parse_plan("   \n\n  ") is None
 
     def test_plan_with_digit_only_tag_ignored(self):
-        """Tag sadece rakamsa atlanmalı (LLM hallucination)."""
+        """If the tag is just numbers, it should be omitted (LLM hallucination)."""
         response = (
             "PLAN:\n"
             "1. 2 something\n"
@@ -312,7 +308,7 @@ class TestPlanParserEdgeCases:
                 assert not step.protocol_tag.isdigit()
 
     def test_truncated_plan_block(self):
-        """[PLAN] açıldı ama [/PLAN] ile kapanmadı — Katman 1'e fallback."""
+        """[PLAN] opened but not closed with [/PLAN] — fallback to Layer 1."""
         response = (
             "[PLAN]\n"
             "1. GOOGLE_SEARCH test query\n"
@@ -324,7 +320,7 @@ class TestPlanParserEdgeCases:
         assert plan.total_steps >= 1
 
     def test_plan_step_with_trailing_period(self):
-        """Adım sonundaki nokta temizlenmeli."""
+        """The dot at the end of the step should be cleared."""
         response = (
             "PLAN:\n"
             "1. GOOGLE_SEARCH Python dersleri.\n"
@@ -333,12 +329,12 @@ class TestPlanParserEdgeCases:
         plan = parse_plan(response)
 
         assert plan is not None
-        # Argümanlardaki son noktanın temizlenmiş olması beklenir
+        # The last point in the arguments is expected to be cleared
         for step in plan.steps:
             assert not step.argument.endswith(".")
 
     def test_execution_plan_properties(self):
-        """ExecutionPlan property'lerinin doğruluğu."""
+        """Correctness of ExecutionPlan properties."""
         plan = ExecutionPlan(
             original_request="test",
             steps=[
@@ -354,7 +350,7 @@ class TestPlanParserEdgeCases:
         assert plan.current_step.protocol_tag == "A"
 
     def test_execution_plan_advance(self):
-        """advance() sonrası current_step doğru ilerlemeli."""
+        """After advance() current_step should proceed correctly."""
         plan = ExecutionPlan(
             original_request="test",
             steps=[
@@ -371,35 +367,35 @@ class TestPlanParserEdgeCases:
         assert plan.status == "completed"
 
     def test_execution_plan_context_summary(self):
-        """get_context_summary() tamamlanan adımları listeler."""
+        """get_context_summary() lists completed steps."""
         plan = ExecutionPlan(
             original_request="test",
             steps=[
                 PlanNode(step_number=1, protocol_tag="A", argument="x",
-                         status="completed", result_message="Başarılı"),
+                         status="completed", result_message="Successful"),
                 PlanNode(step_number=2, protocol_tag="B", argument="y",
                          status="pending"),
             ],
         )
 
         summary = plan.get_context_summary()
-        assert "Adım 1" in summary
-        assert "Başarılı" in summary
+        assert "Step 1" in summary
+        assert "Successful" in summary
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  FİLTRELER
+# FILTERS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 class TestPlanFilters:
-    """WhatsApp dedup ve cleanup guard filtreleri."""
+    """WhatsApp dedup and cleanup guard filters."""
 
     def test_duplicate_whatsapp_recipient_removed(self):
-        """Aynı alıcıya tekrar WHATSAPP_MESSAGE → duplikat silinmeli."""
+        """WHATSAPP_MESSAGE → duplicate should be deleted again to the same recipient."""
         steps = [
             PlanNode(step_number=1, protocol_tag="WHATSAPP_MESSAGE", argument="Ablam|Selam"),
-            PlanNode(step_number=2, protocol_tag="WHATSAPP_MESSAGE", argument="Ablam|Nasılsın"),
+            PlanNode(step_number=2, protocol_tag="WHATSAPP_MESSAGE", argument="My sister|How are you?"),
             PlanNode(step_number=3, protocol_tag="GOOGLE_SEARCH", argument="test"),
         ]
         result_plan = _apply_filters(steps, "")
@@ -411,7 +407,7 @@ class TestPlanFilters:
         assert len(whatsapp_steps) == 1
 
     def test_different_recipients_preserved(self):
-        """Farklı alıcılar korunmalı."""
+        """Different buyers must be protected."""
         steps = [
             PlanNode(step_number=1, protocol_tag="WHATSAPP_MESSAGE", argument="Ablam|Selam"),
             PlanNode(step_number=2, protocol_tag="WHATSAPP_MESSAGE", argument="Annem|Merhaba"),
@@ -420,26 +416,26 @@ class TestPlanFilters:
         assert len(result_plan.steps) == 2
 
     def test_unsolicited_cleanup_step_removed(self):
-        """Kullanıcı istemediği halde APP_KILL eklenirse filtrele."""
+        """Filter if APP_KILL is added even though the user does not want it."""
         steps = [
             PlanNode(step_number=1, protocol_tag="GOOGLE_SEARCH", argument="test"),
             PlanNode(step_number=2, protocol_tag="APP_KILL", argument="Chrome"),
         ]
-        result_plan = _apply_filters(steps, "Google'da test arat")
+        result_plan = _apply_filters(steps, "Search for test on Google")
         assert result_plan.steps[-1].protocol_tag != "APP_KILL"
 
     def test_requested_cleanup_step_preserved(self):
-        """Kullanıcı 'kapat' diyorsa cleanup korunmalı."""
+        """If the user says 'close' the cleanup should be preserved."""
         steps = [
             PlanNode(step_number=1, protocol_tag="GOOGLE_SEARCH", argument="test"),
             PlanNode(step_number=2, protocol_tag="APP_KILL", argument="Chrome"),
         ]
-        result_plan = _apply_filters(steps, "test arat ve chrome'u kapat")
+        result_plan = _apply_filters(steps, "search for test and close chrome")
         assert len(result_plan.steps) == 2
         assert result_plan.steps[-1].protocol_tag == "APP_KILL"
 
     def test_single_step_no_filter(self):
-        """Tek adımlı planda filtre çalışmamalı."""
+        """In the one-step plan, the filter should not work."""
         steps = [
             PlanNode(step_number=1, protocol_tag="GOOGLE_SEARCH", argument="test"),
         ]
@@ -447,6 +443,6 @@ class TestPlanFilters:
         assert len(result_plan.steps) == 1
 
     def test_empty_steps_no_crash(self):
-        """Boş step listesi → çökmemeli."""
+        """Empty step list → should not crash."""
         result_plan = _apply_filters([], "")
         assert len(result_plan.steps) == 0

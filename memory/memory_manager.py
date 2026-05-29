@@ -128,9 +128,9 @@ class DynamicMemorySystem:
         cl = content.lower()
 
         # Personal/critical markers
-        personal = ["oguz", "emir", "tercih", "seviyorum", "hatırla", "unutma"]
-        critical = ["hata", "error", "kritik", "başarısız", "başarılı", "kaydet", "önemli"]
-        action = ["yap", "oluştur", "gönder", "aç", "kapat", "indir"]
+        personal = ["oguz", "emir", "tercih", "seviyorum", "remember", "unutma"]
+        critical = ["hata", "error", "kritik", "unsuccessful", "successful", "kaydet", "important"]
+        action = ["yap", "create", "Send", "hungry", "kapat", "indir"]
 
         if any(w in cl for w in personal): score += 0.5
         if any(w in cl for w in critical): score += 0.3
@@ -149,7 +149,7 @@ class DynamicMemorySystem:
     def _check_contradiction(self, new_content: str) -> Optional[str]:
         """Simple contradiction detection using keyword overlap + negation."""
         new_lower = new_content.lower()
-        negation_words = ["değil", "yanlış", "hayır", "iptal", "aslında",
+        negation_words = ["not", "wrong", "No", "iptal", "Actually",
                           "not", "wrong", "no", "cancel", "actually"]
         has_negation = any(w in new_lower for w in negation_words)
 

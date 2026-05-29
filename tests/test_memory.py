@@ -1,12 +1,10 @@
-"""
-[V8.0] J.A.R.V.I.S. Memory & Reflector Test Suite
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Testler:
+"""[V8.0] J.A.R.V.I.S. Memory & Reflector Test Suite
+━━━━━━━━━━━━━━━━━━━━━━━━ ━━━━━━━━━━━━━━━━━━━━━━━━━
+Tests:
     - Asynchronous Memory Manager (save_memory_async, retrieve_memory_async).
-    - ChromaDB'nin mock edilmesi (Diske yazmayı önlemek için).
-    - Core/Reflector.py'nin memory_manager.save_memory_async fonksiyonunu
-      doğru argumentlerle çağırıp çağırmadığının testi.
-"""
+    - Mocking ChromaDB (to avoid writing to disk).
+    - Memory_manager.save_memory_async function of Core/Reflector.py
+      Testing whether you call it with the right arguments."""
 
 import asyncio
 import pytest
@@ -22,7 +20,7 @@ from core.state_manager import TaskState
 
 @pytest.fixture
 def mock_chroma_client():
-    """ChromaDB istemcisini mocklar, diske erişimi engeller."""
+    """Mocks the ChromaDB client, preventing disk access."""
     with patch("chromadb.PersistentClient") as mock_client:
         mock_collection = MagicMock()
         mock_client.return_value.get_or_create_collection.return_value = mock_collection
@@ -41,17 +39,17 @@ def mock_chroma_client():
 
 class TestMemoryManager:
     def test_init_safe(self, mock_chroma_client):
-        """MemoryManager basarili olarak baslatilmali ve Chroma client'i cagirmali."""
+        """MemoryManager should launch successfully and call the Chroma client."""
         mem = MemoryManager(db_path=":memory:")
         mem.initialize()
         assert mem.collection is not None
         mock_chroma_client.assert_called_once()
 
     def test_save_memory_sync(self, mock_chroma_client):
-        """Senkron save_memory başarılı şekilde veriyi eklemeli (metadata kontrolü)."""
+        """Synchronous save_memory should successfully add data (metadata check)."""
         mem = MemoryManager(db_path=":memory:")
         mem.initialize()
-        # Duplicate detection'ı atlamak için count 0 dönmeli
+        # count should return 0 to bypass duplicate detection
         mem.collection.count.return_value = 0
         doc_id = mem.save_memory(
             text="J.A.R.V.I.S. completed a task",
@@ -68,7 +66,7 @@ class TestMemoryManager:
 
     @pytest.mark.asyncio
     async def test_save_memory_async(self, mock_chroma_client):
-        """Asenkron save_memory_async fonksiyonu çağrısı doğrulaması."""
+        """Asynchronous save_memory_async function call validation."""
         mem = MemoryManager(db_path=":memory:")
         mem.initialize()
         mem.collection.count.return_value = 0
@@ -83,12 +81,12 @@ class TestMemoryManager:
 
     @pytest.mark.asyncio
     async def test_retrieve_memory_async(self, mock_chroma_client):
-        """Asenkron retrieve_memory_async çağrısı doğrulaması."""
+        """Asynchronous retrieve_memory_async call validation."""
         mem = MemoryManager(db_path=":memory:")
         mem.initialize()
         
         results = await mem.retrieve_memory_async("test query", memory_type="episodic")
-        # Bizim mock_collection.query return type'a göre 1 tane dönmeli
+        # According to our mock_collection.query return type, it should return 1
         assert len(results) == 1
         assert results[0]["id"] == "test-id"
         assert results[0]["text"] == "mocked result"
@@ -101,7 +99,7 @@ class TestMemoryManager:
 class TestReflectorIntegration:
     @pytest.fixture
     def active_task(self):
-        task = TaskState(id="t123", goal="Google'da araba modeli ara")
+        task = TaskState(id="t123", goal="Search car model on Google")
         task.tool_history.extend([
             {"tool": "GOOGLE_SEARCH", "success": True, "duration_ms": 1500},
             {"tool": "WEB_OPEN", "success": False, "duration_ms": 800}
@@ -111,7 +109,7 @@ class TestReflectorIntegration:
 
     @pytest.mark.asyncio
     async def test_reflector_saves_to_memory(self, active_task):
-        """Reflector'ın _reflect işlemi başarılı olduğunda db kaydını (episodic memory) tetiklediğini test et."""
+        """Test that Reflector triggers db recording (episodic memory) when _reflect operation is successful."""
         # Mock Memory Manager
         mock_memory = MagicMock(spec=MemoryManager)
         mock_memory.save_memory_async = AsyncMock(return_value="mock_doc_id")
@@ -125,17 +123,17 @@ class TestReflectorIntegration:
         assert reflection_result["task_type"] == "web"
         assert "GOOGLE_SEARCH, WEB_OPEN" in reflection_result["tool_used"]
 
-        # save_memory_async'in çağrılıp çağrılmadığını doğrula (1 kere)
+        # Verify if save_memory_async is called (1 time)
         mock_memory.save_memory_async.assert_called_once()
 
-        # Argümanları incele
+        # Examine the arguments
         kwargs = mock_memory.save_memory_async.call_args[1]
         
         assert kwargs["memory_type"] == "episodic"
         assert "text" in kwargs
         assert "[NE YAPTIM]" in kwargs["text"]
         
-        # İstenen Episodic Metadata'lar içinde mecut mu?
+        # Is it included in the requested Episodic Metadata?
         metadata = kwargs["metadata"]
         assert metadata["task_id"] == "t123"
         assert metadata["task_type"] == "web"
@@ -146,7 +144,7 @@ class TestReflectorIntegration:
 
     @pytest.mark.asyncio
     async def test_reflector_ignores_non_terminal(self):
-        """Bitmemiş görevlerde (non-terminal) reflection (yansıtma) çalışmamalı."""
+        """Reflection should not work on unfinished tasks (non-terminal)."""
         task = TaskState(id="t_running", goal="Test", status="running")
         reflector = Reflector()
         
@@ -155,7 +153,7 @@ class TestReflectorIntegration:
 
     @pytest.mark.asyncio
     async def test_reflector_fallback_when_no_memory(self, active_task):
-        """Memory modülü yoksa, Reflector sadece reflection dict dönmeli ve kilitlenmemeli (crash)."""
+        """If there is no memory module, Reflector should only return the reflection dict and not crash."""
         reflector = Reflector(memory=None)
         res = await reflector.reflect(active_task)
         

@@ -51,17 +51,17 @@ def contacts_file():
 def test_initialize_idempotent_migration(mock_memory, contacts_file):
     manager = ContactManager(mock_memory, contacts_path=contacts_file)
     
-    # İlk çalıştırma -> 2 kişi eklenmeli
+    # First run -> 2 people must be added
     manager.initialize()
     assert len(mock_memory.storage) == 2
     assert f"{CONTACT_ID_PREFIX}Alice" in mock_memory.storage
     assert f"{CONTACT_ID_PREFIX}Bob" in mock_memory.storage
     
-    # contacts.json güncelleniyor (yeni kişi ekleniyor)
+    # updating contacts.json (adding new contact)
     with open(contacts_file, "w", encoding="utf-8") as f:
         json.dump({"Alice": "12345", "Bob": "67890", "Charlie": "11111"}, f)
         
-    # İkinci çalıştırma -> Sadece Charlie eklenmeli, eski kayıtlar atlanmalı
+    # Second run -> Only Charlie should be added, old records should be skipped
     manager.initialize()
     assert len(mock_memory.storage) == 3
     assert f"{CONTACT_ID_PREFIX}Charlie" in mock_memory.storage
@@ -69,20 +69,20 @@ def test_initialize_idempotent_migration(mock_memory, contacts_file):
 def test_get_profile_fallback_to_json(mock_memory, contacts_file):
     manager = ContactManager(mock_memory, contacts_path=contacts_file)
     
-    # Başlangıçta ChromaDB boş (storage boş) ve cache boş
+    # Initially, ChromaDB is empty (storage is empty) and cache is empty
     assert len(mock_memory.storage) == 0
     
-    # Alice çağrıldığında -> JSON'dan bulunup ChromaDB'ye yazılmalı
+    # When Alice is called -> Must be found from JSON and written to ChromaDB
     profile = manager.get_profile("Alice")
     assert profile["name"] == "Alice"
     assert profile["phone"] == "12345"
     
-    # ChromaDB'ye kaydedildi mi kontrol edelim
+    # Let's check if it is saved to ChromaDB
     assert f"{CONTACT_ID_PREFIX}Alice" in mock_memory.storage
     saved_doc = json.loads(mock_memory.storage[f"{CONTACT_ID_PREFIX}Alice"]["document"])
     assert saved_doc["name"] == "Alice"
     
-    # Ayrıca cache'e de yazıldı mı kontrol edelim
+    # Also, let's check if it has been written to the cache.
     assert "Alice" in manager._cache
 
 def test_initialize_skips_when_no_json(mock_memory):
@@ -94,7 +94,7 @@ def test_update_after_message(mock_memory, contacts_file):
     manager = ContactManager(mock_memory, contacts_path=contacts_file)
     manager.update_after_message("Bob", "Hello there!", success=True)
     
-    # Başarılı olduğunda Bob ChromaDB'ye _upsert_profile ile kaydedilmiş olmalı
+    # When successful, Bob should be saved in ChromaDB with _upsert_profile
     assert f"{CONTACT_ID_PREFIX}Bob" in mock_memory.storage
     saved_doc = json.loads(mock_memory.storage[f"{CONTACT_ID_PREFIX}Bob"]["document"])
     

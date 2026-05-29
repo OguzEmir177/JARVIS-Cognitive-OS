@@ -4,8 +4,8 @@
 import sys
 import os
 
-sys.path.insert(0, r"c:\Users\proog\OneDrive\Masaüstü\Projeler\My_Jarvis_Project")
-os.chdir(r"c:\Users\proog\OneDrive\Masaüstü\Projeler\My_Jarvis_Project")
+sys.path.insert(0, r"c:\Users\proog\OneDrive\Desktop\Projects\My_Jarvis_Project")
+os.chdir(r"c:\Users\proog\OneDrive\Desktop\Projects\My_Jarvis_Project")
 
 import logging
 logging.basicConfig(level=logging.WARNING)
@@ -34,21 +34,21 @@ print("  Fuzzy Matching Testleri")
 print("=" * 60)
 
 tests = [
-    ("github",       "GitHub'ı bulmalı"),
-    ("whatsap",      "WhatsApp'ı bulmalı (yazım hatası)"),
-    ("whatsapp",     "WhatsApp'ı bulmalı (doğru yazım)"),
-    ("discord",      "Discord'u bulmalı"),
-    ("steam",        "Steam'i bulmalı"),
-    ("vs code",      "VS Code'u bulmalı"),
-    ("vscode",       "VS Code'u bulmalı (kısaltma)"),
-    ("chrome",       "Chrome'u bulmalı"),
-    ("spotify",      "Spotify'ı bulmalı"),
-    ("notepad",      "Notepad'i bulmalı"),
-    ("epic",         "Epic Games'i bulmalı"),
-    ("DISCORD",      "Discord - büyük harf testi"),
-    ("Spotify",      "Spotify - karışık harf testi"),
-    ("discort",      "Discord - yazım hatası testi"),
-    ("googlechrome", "Chrome - bitişik yazım"),
+    ("github",       "Should find GitHub"),
+    ("whatsap",      "Should find WhatsApp (typo)"),
+    ("whatsapp",     "Should find WhatsApp (correct spelling)"),
+    ("discord",      "Must find Discord"),
+    ("steam",        "should find Steam"),
+    ("vs code",      "Should find VS Code"),
+    ("vscode",       "Should find VS Code (abbreviation)"),
+    ("chrome",       "Should find Chrome"),
+    ("spotify",      "Must find Spotify"),
+    ("notepad",      "should find Notepad"),
+    ("epic",         "Must find Epic Games"),
+    ("DISCORD",      "Discord - caps test"),
+    ("Spotify",      "Spotify - mixed letters test"),
+    ("discort",      "Discord - typo test"),
+    ("googlechrome", "Chrome - cursive"),
 ]
 
 print(f"\n{'Sorgu':<20} {'Bulunan':<35} {'Skor':<8} {'Kaynak'}")
@@ -76,4 +76,4 @@ for raw, expected in norm_tests:
     ok = "[OK]" if result == expected else "[X]"
     print(f"  {ok} '{raw}' -> '{result}' (beklenen: '{expected}')")
 
-print("\nTest tamamlandı.")
+print("\nTesting completed.")

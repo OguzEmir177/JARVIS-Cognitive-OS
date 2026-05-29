@@ -86,7 +86,7 @@ class GoalManager:
             logger.warning(f"Goal load error: {e}")
 
     def save_goals(self):
-        # Thread-safety için verinin anlık kopyasını (snapshot) al
+        # Get a snapshot of the data for thread-safety
         goals_snapshot = {gid: g.to_dict() for gid, g in self.goals.items()}
         
         def _write():

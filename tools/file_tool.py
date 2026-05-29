@@ -1,17 +1,15 @@
-"""
-[V15.0] J.A.R.V.I.S. Filesystem Tools
+"""[V15.0] J.A.R.V.I.S. Filesystem Tools
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Production-grade file I/O araçları.
+Production-grade file I/O tools.
 
-V15.0 Değişiklikleri:
-    - Absolute path garantisi: Windows API üzerinden gerçek kullanıcı dizinleri
-    - Context-aware: last_active_file her başarılı işlemde güncellenir
-    - OS-level doğrulama: exists() + content verification
-    - Fake success YOK: her başarısızlık dürüstçe döner
-    - FILE_WRITE: path|content ve context fallback
+V15.0 Changes:
+    - Absolute path guarantee: real user directories via Windows API
+    - Context-aware: last_active_file is updated on every successful transaction
+    - OS-level verification: exists() + content verification
+    - NO fake success: every failure returns honestly
+    - FILE_WRITE: path|content and context fallback
     - FOLDER_OPEN: explorer.exe verified subprocess
-    - FILE_DELETE: tam implementasyon
-"""
+    - FILE_DELETE: full implementation"""
 
 import logging
 import os
@@ -26,20 +24,18 @@ MAX_FILE_CHARS = 8000
 
 
 def _get_windows_user_folder(folder_name: str) -> Path:
-    """
-    Windows KNOWNFOLDER API veya SHGetFolderPath ile gerçek kullanıcı dizinini döndürür.
-    Fallback: os.path.expanduser + USERPROFILE env.
-    """
-    # Windows'a özel shell folder ID mapping
+    """Returns the actual user directory with the Windows KNOWNFOLDER API or SHGetFolderPath.
+    Fallback: os.path.expanduser + USERPROFILE env."""
+    # Shell folder ID mapping specific to Windows
     CSIDL_MAP = {
         "desktop":    0x0010,   # CSIDL_DESKTOPDIRECTORY
         "documents":  0x0005,   # CSIDL_PERSONAL
-        "downloads":  None,     # CSIDL yok, Registry'den al
+        "downloads":  None,     # No CSIDL, get it from Registry
         "pictures":   0x0027,   # CSIDL_MYPICTURES
         "videos":     0x000E,   # CSIDL_MYVIDEO (eski), fallback kullan
     }
 
-    # Önce USERPROFILE + direkt yol dene (en güvenilir)
+    # Try USERPROFILE + direct path first (most reliable)
     userprofile = os.environ.get("USERPROFILE", str(Path.home()))
 
     DIRECT_MAP = {
@@ -56,21 +52,21 @@ def _get_windows_user_folder(folder_name: str) -> Path:
         p = Path(direct)
         if p.exists():
             return p
-        # Oluşmamış bile olsa bu doğru path — döndür
+        # This is the correct path even if it is not created — return
         return p
 
     return Path(userprofile)
 
 
-# Türkçe → canonical folder key mapping
+# Turkish → canonical folder key mapping
 FOLDER_ALIAS_MAP = {
-    "masaüstü":      "desktop",
-    "masaustü":      "desktop",
-    "masaüstu":      "desktop",
+    "desktop":      "desktop",
+    "desktop":      "desktop",
+    "desktop":      "desktop",
     "masaustu":      "desktop",
     "desktop":       "desktop",
     "belgeler":      "documents",
-    "dökümanlar":    "documents",
+    "documents":    "documents",
     "documents":     "documents",
     "indirmeler":    "downloads",
     "indirilenler":  "downloads",
@@ -78,31 +74,29 @@ FOLDER_ALIAS_MAP = {
     "downloads":     "downloads",
     "resimler":      "pictures",
     "pictures":      "pictures",
-    "fotoğraflar":   "pictures",
+    "photos":   "pictures",
     "videolar":      "videos",
     "videos":        "videos",
-    "müzik":         "music",
+    "music":         "music",
     "music":         "music",
 }
 
 
 def _resolve_path(raw: str, context: dict = None) -> tuple[Path, str]:
-    """
-    Ham path string'ini absolute Path'e çevirir.
+    """Converts the raw path string to absolute Path.
 
     Returns: (resolved_path, debug_info)
 
     Priority:
-      1. Boş + context last_active_file → son aktif dosya
-      2. Türkçe alias prefix → Windows gerçek klasör (çekim ekleri temizlenir)
-      3. Absolute path ise direkt kullan
-      4. Relative path → expanduser + resolve
-    """
+      1. Empty + context last_active_file → last active file
+      2. Turkish alias prefix → Windows real folder (inflectional suffixes are cleared)
+      3. If it is an absolute path, use it directly
+      4. Relative path → expanduser + resolve"""
     raw = (raw or "").strip()
-    # Eski format uyumluluğu: pipe separator'ı path separator'a çevir
+    # Legacy format compatibility: convert pipe separator to path separator
     raw = raw.replace("|", "/")
 
-    # 1. Boş input → context'ten son aktif dosyayı al
+    #1. Get last active file from empty input → context
     if not raw:
         if context:
             laf = context.get("last_active_file")
@@ -112,17 +106,17 @@ def _resolve_path(raw: str, context: dict = None) -> tuple[Path, str]:
 
     lower = raw.lower()
 
-    # Türkçe çekim ekleri — alias'tan sonra strip edilir
-    TURKISH_SUFFIXES = ("nde", "nü", "nü", "nı", "ne", "na", "ya", "ye",
-                        "da", "de", "ta", "te", "nün", "nun", "nin", "nın")
+    # Turkish inflectional suffixes — strip after alias
+    TURKISH_SUFFIXES = ("nde", "nude", "nude", "ni", "ne", "na", "ya", "ye",
+                        "da", "de", "ta", "te", "of", "nun", "nin", "of")
 
-    # 2. Türkçe alias prefix kontrolü
+    # 2. Turkish alias prefix control
     for alias, folder_key in FOLDER_ALIAS_MAP.items():
         if lower.startswith(alias):
             base_folder = _get_windows_user_folder(folder_key)
             remainder = raw[len(alias):]
 
-            # Türkçe çekim ekini soyundan soy (örn: "nde ", "ne ", "ya " vb.)
+            # Derive the Turkish inflectional suffix (e.g. "nde", "ne", "ya" etc.)
             remainder_stripped = remainder.lstrip()
             remainder_lower = remainder_stripped.lower()
             for suffix in TURKISH_SUFFIXES:
@@ -146,14 +140,14 @@ def _resolve_path(raw: str, context: dict = None) -> tuple[Path, str]:
     if p.is_absolute():
         return p.resolve(), f"absolute:{raw}"
 
-    # 4. Sadece dosya adı verilmişse (path bileşeni yok) → context'te aynı isimde dosya var mı?
-    # Örn: "jarvis_regression_test.txt içine yaz" → raw="jarvis_regression_test.txt"
+    # 4. If only the file name is given (no path component) → is there a file with the same name in the context?
+    # Ex: "Write into jarvis_regression_test.txt" → raw="jarvis_regression_test.txt"
     # context'te last_active_file="C:\...\Desktop\jarvis_regression_test.txt" → o path'i kullan
     if "/" not in raw and "\\" not in raw and context is not None:
         laf = context.get("last_active_file")
         if laf:
             laf_path = Path(laf)
-            # Sadece dosya adı eşleşiyorsa (büyük/küçük harf insensitive)
+            # Only if the filename matches (case insensitive)
             if laf_path.name.lower() == Path(raw).name.lower():
                 return laf_path, f"context_match:{raw}→{laf_path}"
 
@@ -163,12 +157,12 @@ def _resolve_path(raw: str, context: dict = None) -> tuple[Path, str]:
 
 
 def _set_last_active_file(context: dict, path: Path):
-    """Context'e son aktif dosyayı yaz. PlanExecutor referansı varsa ona da yaz."""
-    if context is None:   # NOT: 'if not context' {} için False döner, bu YANLIŞ
+    """Write the last active file to the context. If there is a PlanExecutor reference, write it to that too."""
+    if context is None:   # NOTE: 'if not context' returns False for {}, this is FALSE
         return
     context["last_active_file"] = str(path)
     logger.info(f"[CONTEXT] last_active_file = {path}")
-    # PlanExecutor referansı varsa
+    # If there is a PlanExecutor reference
     pe = context.get("plan_executor")
     if pe is not None and hasattr(pe, "last_active_file"):
         pe.last_active_file = str(path)
@@ -177,42 +171,40 @@ def _set_last_active_file(context: dict, path: Path):
 
 
 def _parse_write_params(raw: str, context: dict) -> tuple[str, str]:
-    """
-    FILE_WRITE için path ve content ayırt eder.
+    """For FILE_WRITE, it distinguishes path and content.
 
-    Formatlar:
-      1. "masaüstü/test.txt|merhaba"   → path=masaüstü/test.txt, content=merhaba
-      2. "test.txt|merhaba dünya"       → path=test.txt, content=merhaba dünya
-      3. "içine merhaba yaz"            → path=context, content=merhaba (verb extraction)
-      4. "merhaba"                      → path=context, content=merhaba
-    """
+    Formats:
+      1. "desktop/test.txt|hello" → path=desktop/test.txt, content=hello
+      2. "test.txt|hello world" → path=test.txt, content=hello world
+      3. “type hello in it” → path=context, content=hello (verb extraction)
+      4. "hello" → path=context, content=hello"""
     if "|" in raw:
         parts = raw.split("|", 1)
         return parts[0].strip(), parts[1].strip()
 
-    # Türkçe "X'e Y yaz" / "X içine Y yaz" kalıbı
+    # Turkish "Write Y into X" / "Write Y into X" pattern
     import re
-    # "test.txt içine merhaba yaz" → path=test.txt, content=merhaba
-    m = re.search(r'(.+?)\s+(?:içine|içine\s+)\s*(.+?)(?:\s+yaz\s*)?$', raw, re.IGNORECASE)
+    # "write hello in test.txt" → path=test.txt, content=hello
+    m = re.search(r'(.+?)\s+(?:into|into\s+)\s*(.+?)(?:\s+write\s*)?$', raw, re.IGNORECASE)
     if m:
         possible_path = m.group(1).strip()
-        # Eğer possible_path bir dosya uzantısı içeriyorsa ya da alias ise → path
+        # If possible_path contains a file extension or is an alias → path
         if ("." in possible_path or
                 any(possible_path.lower().startswith(a) for a in FOLDER_ALIAS_MAP)):
             content_part = m.group(2).strip()
-            # "yaz" fiilini sona eklenmişse çıkar
+            # Remove the verb "write" if it is appended
             if content_part.endswith(" yaz"):
                 content_part = content_part[:-4].strip()
             return possible_path, content_part
 
-    # Sadece içerik → path'i context'ten al (boş string → _resolve_path context'ten alır)
-    # "içine merhaba yaz" gibi
+    # Just content → get path from context (empty string → _resolve_path gets from context)
+    # like "write hello in it"
     content_clean = raw
     # "... yaz" son fiilini temizle
     if content_clean.lower().endswith(" yaz"):
         content_clean = content_clean[:-4].strip()
-    # "içine " prefix'ini temizle
-    if content_clean.lower().startswith("içine "):
+    # clear "into" prefix
+    if content_clean.lower().startswith("into"):
         content_clean = content_clean[6:].strip()
     return "", content_clean
 
@@ -238,18 +230,18 @@ class FileReadTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="NotFound",
-                message=f"Dosya bulunamadı: {path}"
+                message=f"File not found: {path}"
             )
 
         if path.is_dir():
             try:
                 files = sorted(path.iterdir(), key=lambda f: f.name)[:20]
                 names = [f.name for f in files]
-                files_str = ", ".join(names) if names else "Klasör boş"
+                files_str = ", ".join(names) if names else "folder is empty"
                 return ToolResult(
                     success=True, verified=True,
                     message=f"Dizin ({path}): {files_str}",
-                    speak=f"Klasör içeriği: {files_str}"
+                    speak=f"Folder content: {files_str}"
                 )
             except Exception as e:
                 return ToolResult(success=False, verified=False, error=str(e), message=str(e))
@@ -259,11 +251,11 @@ class FileReadTool(BaseTool):
             loop = asyncio.get_running_loop()
             content = await loop.run_in_executor(None, lambda: path.read_text(encoding="utf-8"))
             if len(content) > MAX_FILE_CHARS:
-                content = content[:MAX_FILE_CHARS] + "... [KESİLDİ]"
+                content = content[:MAX_FILE_CHARS] + "... [INTERRUPT]"
             return ToolResult(
                 success=True, verified=True,
                 message=content,
-                speak=f"{path.name} dosyası okundu."
+                speak=f"File {path.name} has been read."
             )
         except UnicodeDecodeError:
             try:
@@ -271,21 +263,21 @@ class FileReadTool(BaseTool):
                 content = await loop.run_in_executor(None, lambda: path.read_text(encoding="cp1254"))
                 return ToolResult(success=True, verified=True, message=content, speak="Dosya okundu.")
             except Exception as e:
-                return ToolResult(success=False, verified=False, error=str(e), message=f"Encoding hatası: {e}")
+                return ToolResult(success=False, verified=False, error=str(e), message=f"Encoding error: {e}")
         except Exception as e:
-            return ToolResult(success=False, verified=False, error=str(e), message=f"Okuma hatası: {e}")
+            return ToolResult(success=False, verified=False, error=str(e), message=f"Read error: {e}")
 
 
 class FileCreateTool(BaseTool):
-    name = "Dosya Oluşturma"
+    name = "Creating Files"
     protocol_tag = "FILE_CREATE"
     domain = "filesystem"
     parameters = {
-        "file_path": {"type": "string", "description": "Dosya yolu (ör: masaüstü/test.txt)"}
+        "file_path": {"type": "string", "description": "File path (ex: desktop/test.txt)"}
     }
 
     async def execute(self, params: dict, context: dict) -> ToolResult:
-        # Parametre gelme şekline göre çöz: file_path veya query
+        # Resolve according to the type of parameter: file_path or query
         raw = (params.get("file_path") or params.get("query") or "").strip()
 
         if not raw:
@@ -295,7 +287,7 @@ class FileCreateTool(BaseTool):
                 message="Dosya yolu belirtilmedi."
             )
 
-        # Ham input'tan dosya adını çıkar (LLM "masaüstünde test.txt oluştur" gönderebilir)
+        # Extract filename from raw input (LLM can send "generate test.txt on desktop")
         raw = _extract_filename_from_command(raw)
 
         path, dbg = _resolve_path(raw, context)
@@ -305,7 +297,7 @@ class FileCreateTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="IsDir",
-                message=f"Sadece dizin belirtildi, dosya adı gerekli: {path}"
+                message=f"Only directory specified, filename required: {path}"
             )
 
         try:
@@ -320,23 +312,23 @@ class FileCreateTool(BaseTool):
                 return ToolResult(
                     success=False, verified=False,
                     error="CreateFailed",
-                    message=f"Dosya oluşturulamadı (OS doğrulaması başarısız): {path}"
+                    message=f"Failed to create file (OS verification failed): {path}"
                 )
 
             _set_last_active_file(context, path)
             return ToolResult(
                 success=True, verified=True,
-                message=f"{path.name} oluşturuldu → {path}",
-                speak=f"{path.name} dosyası başarıyla oluşturuldu Efendim."
+                message=f"{path.name} created → {path}",
+                speak=f"File {path.name} created successfully Sir."
             )
         except PermissionError:
             return ToolResult(
                 success=False, verified=False,
                 error="PermissionDenied",
-                message=f"İzin hatası: {path} konumuna yazma izni yok."
+                message=f"Permission error: No permission to write to location {path}."
             )
         except Exception as e:
-            return ToolResult(success=False, verified=False, error=str(e), message=f"Oluşturma hatası: {e}")
+            return ToolResult(success=False, verified=False, error=str(e), message=f"Render error: {e}")
 
 
 class FileWriteTool(BaseTool):
@@ -346,7 +338,7 @@ class FileWriteTool(BaseTool):
     parameters = {
         "file_path_and_content": {
             "type": "string",
-            "description": "Dosya yolu ve içerik: 'yol|içerik' veya sadece içerik (path context'ten alınır)"
+            "description": "File path and context: 'path|content' or just content (path is taken from context)"
         }
     }
 
@@ -361,7 +353,7 @@ class FileWriteTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="MissingContent",
-                message="Yazılacak içerik belirtilmedi."
+                message="The content to be written is not specified."
             )
 
         path, dbg = _resolve_path(file_path_str, context)
@@ -371,7 +363,7 @@ class FileWriteTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="IsDir",
-                message=f"Dizine yazılamaz, dosya adı gerekli: {path}"
+                message=f"Cannot write to directory, filename required: {path}"
             )
 
         try:
@@ -389,13 +381,13 @@ class FileWriteTool(BaseTool):
                 return ToolResult(
                     success=False, verified=False,
                     error="VerifyFailed",
-                    message=f"İçerik yazıldı ama doğrulanamadı: {path}"
+                    message=f"Content written but could not be verified: {path}"
                 )
 
             _set_last_active_file(context, path)
             return ToolResult(
                 success=True, verified=True,
-                message=f"{path.name} dosyasına yazıldı → {path}",
+                message=f"Written to file {path.name} → {path}",
                 next_action="FILE_WRITE_INTERPRET",
                 data={"filename": path.name}
             )
@@ -403,10 +395,10 @@ class FileWriteTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="PermissionDenied",
-                message=f"İzin hatası: {path}"
+                message=f"Permission error: {path}"
             )
         except Exception as e:
-            return ToolResult(success=False, verified=False, error=str(e), message=f"Yazma hatası: {e}")
+            return ToolResult(success=False, verified=False, error=str(e), message=f"Write error: {e}")
 
 
 class FileDeleteTool(BaseTool):
@@ -426,13 +418,13 @@ class FileDeleteTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="NotFound",
-                message=f"Dosya bulunamadı: {path}"
+                message=f"File not found: {path}"
             )
         if path.is_dir():
             return ToolResult(
                 success=False, verified=False,
                 error="IsDir",
-                message=f"Dizin silinemez (güvenlik). Sadece dosya silinebilir: {path}"
+                message=f"The directory cannot be deleted (security). Only file can be deleted: {path}"
             )
 
         try:
@@ -444,10 +436,10 @@ class FileDeleteTool(BaseTool):
                 return ToolResult(
                     success=False, verified=False,
                     error="DeleteFailed",
-                    message=f"Dosya silindi gibi görünüyor ama hâlâ var: {path}"
+                    message=f"The file appears to have been deleted but still exists: {path}"
                 )
 
-            # Context'teki last_active_file'ı temizle
+            # Clear last_active_file in context
             if context:
                 if context.get("last_active_file") == str(path):
                     context["last_active_file"] = None
@@ -459,36 +451,36 @@ class FileDeleteTool(BaseTool):
             return ToolResult(
                 success=True, verified=True,
                 message=f"{path.name} silindi.",
-                speak=f"{path.name} dosyası başarıyla silindi Efendim."
+                speak=f"File {path.name} deleted successfully Sir."
             )
         except PermissionError:
             return ToolResult(
                 success=False, verified=False,
                 error="PermissionDenied",
-                message=f"İzin hatası: {path} silinemedi."
+                message=f"Permission error: Could not delete {path}."
             )
         except Exception as e:
-            return ToolResult(success=False, verified=False, error=str(e), message=f"Silme hatası: {e}")
+            return ToolResult(success=False, verified=False, error=str(e), message=f"Delete error: {e}")
 
 
 class FolderOpenTool(BaseTool):
-    name = "Klasör Açma"
+    name = "Opening a Folder"
     protocol_tag = "FOLDER_OPEN"
     domain = "filesystem"
     parameters = {
-        "folder_path": {"type": "string", "description": "Açılacak klasör yolu veya adı (ör: indirilenler)"}
+        "folder_path": {"type": "string", "description": "Path or name of the folder to open (e.g. downloads)"}
     }
 
     async def execute(self, params: dict, context: dict) -> ToolResult:
         raw = (params.get("folder_path") or params.get("query") or "").strip()
 
-        # Keyword olarak "indirilenler" gibi gelirse doğru alias'a çevir
+        # If the keyword sounds like "downloads", change it to the correct alias
         raw = _clean_folder_keyword(raw)
 
         path, dbg = _resolve_path(raw, context)
         logger.info(f"FOLDER_OPEN resolved: {raw!r} → {path} ({dbg})")
 
-        # Eğer path bir dosyaysa, parent dizini al
+        # If path is a file, get parent directory
         if path.is_file():
             path = path.parent
 
@@ -496,58 +488,58 @@ class FolderOpenTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="NotFound",
-                message=f"Klasör bulunamadı: {path}"
+                message=f"Folder not found: {path}"
             )
 
         if not path.is_dir():
             return ToolResult(
                 success=False, verified=False,
                 error="NotADirectory",
-                message=f"Bu bir klasör değil: {path}"
+                message=f"This is not a folder: {path}"
             )
 
         try:
-            # Explorer ile aç — verified subprocess
+            # Open with Explorer — verified subprocess
             result = subprocess.Popen(
                 ["explorer.exe", str(path)],
                 creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
             )
-            logger.info(f"FOLDER_OPEN: explorer.exe başlatıldı, PID={result.pid}, path={path}")
+            logger.info(f"FOLDER_OPEN: explorer.exe started, PID={result.pid}, path={path}")
 
             return ToolResult(
                 success=True, verified=True,
-                message=f"{path} klasörü açıldı.",
-                speak=f"{path.name} klasörü açılıyor Efendim."
+                message=f"The {path} folder is opened.",
+                speak=f"The {path.name} folder is opening, Sir."
             )
         except FileNotFoundError:
-            # explorer.exe bulunamadı — alternatif yol
+            # explorer.exe not found — alternative path
             try:
                 os.startfile(str(path))
                 return ToolResult(
                     success=True, verified=True,
-                    message=f"{path} klasörü açıldı (os.startfile).",
-                    speak="Klasör açılıyor Efendim."
+                    message=f"The {path} folder is opened (os.startfile).",
+                    speak="The folder is opening, Sir."
                 )
             except Exception as e2:
                 return ToolResult(
                     success=False, verified=False,
                     error=str(e2),
-                    message=f"Klasör açılamadı: {e2}"
+                    message=f"Could not open folder: {e2}"
                 )
         except Exception as e:
             return ToolResult(
                 success=False, verified=False,
                 error=str(e),
-                message=f"Klasör açılamadı: {e}"
+                message=f"Could not open folder: {e}"
             )
 
 
 class FileOpenTool(BaseTool):
-    name = "Dosya Açma"
+    name = "Opening a File"
     protocol_tag = "FILE_OPEN"
     domain = "filesystem"
     parameters = {
-        "file_path": {"type": "string", "description": "Açılacak dosyanın yolu veya adı (ör: hesap_makinesi.py)"}
+        "file_path": {"type": "string", "description": "Path or name of the file to be opened (ex: accounting_makinesi.py)"}
     }
 
     async def execute(self, params: dict, context: dict) -> ToolResult:
@@ -559,14 +551,14 @@ class FileOpenTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="NotFound",
-                message=f"Dosya bulunamadı: {path}"
+                message=f"File not found: {path}"
             )
 
         if not path.is_file():
             return ToolResult(
                 success=False, verified=False,
                 error="NotAFile",
-                message=f"Bu bir dosya değil: {path}. Klasörleri açmak için FOLDER_OPEN kullanın."
+                message=f"This is not a file: {path}. Use FOLDER_OPEN to open folders."
             )
 
         try:
@@ -574,14 +566,14 @@ class FileOpenTool(BaseTool):
             os.startfile(str(path))
             return ToolResult(
                 success=True, verified=True,
-                message=f"{path.name} dosyası varsayılan uygulama ile açıldı.",
-                speak=f"{path.name} dosyasını açıyorum Efendim."
+                message=f"The {path.name} file was opened with the default application.",
+                speak=f"I am opening the {path.name} file, Sir."
             )
         except Exception as e:
             return ToolResult(
                 success=False, verified=False,
                 error=str(e),
-                message=f"Dosya açılamadı: {e}"
+                message=f"Could not open file: {e}"
             )
 
 
@@ -590,7 +582,7 @@ class FileLatestTool(BaseTool):
     protocol_tag = "FILE_LATEST"
     domain = "filesystem"
     parameters = {
-        "dir_path": {"type": "string", "description": "Klasör yolu (ör: indirmeler)"}
+        "dir_path": {"type": "string", "description": "Folder path (e.g. downloads)"}
     }
 
     async def execute(self, params: dict, context: dict) -> ToolResult:
@@ -603,7 +595,7 @@ class FileLatestTool(BaseTool):
             return ToolResult(
                 success=False, verified=False,
                 error="NoDir",
-                message=f"Klasör bulunamadı: {path}"
+                message=f"Folder not found: {path}"
             )
 
         try:
@@ -612,7 +604,7 @@ class FileLatestTool(BaseTool):
                 return ToolResult(
                     success=False, verified=False,
                     error="Empty",
-                    message=f"Klasörde dosya yok: {path}"
+                    message=f"No files in folder: {path}"
                 )
             latest = max(files, key=lambda p: p.stat().st_mtime)
             _set_last_active_file(context, latest)
@@ -626,8 +618,8 @@ class FileLatestTool(BaseTool):
 
 
 class FileSummarizeTool(BaseTool):
-    """Geriye dönük uyumluluk için — yönlendirir."""
-    name = "Dosya Özetleme"
+    """For backward compatibility — redirects."""
+    name = "File Summarization"
     protocol_tag = "FILE_SUMMARIZE"
     domain = "filesystem"
     parameters = {"file_path": {"type": "string", "description": "Dosya yolu"}}
@@ -636,51 +628,47 @@ class FileSummarizeTool(BaseTool):
         return ToolResult(
             success=False, verified=False,
             error="Deprecated",
-            message="Bu araç kaldırıldı. FILE_READ kullanın."
+            message="This tool has been removed. Use FILE_READ."
         )
 
 
 # ──────────────────────────────────────────────────────────
-#  YARDIMCI FONKSİYONLAR
+# AUXILIARY FUNCTIONS
 # ──────────────────────────────────────────────────────────
 
 def _extract_filename_from_command(raw: str) -> str:
-    """
-    "masaüstünde test.txt oluştur" → "masaüstü/test.txt"
-    "test.txt oluştur" → "test.txt"
-    "masaüstüne notes.txt yarat" → "masaüstü/notes.txt"
-    """
+    """"create test.txt on desktop" → "desktop/test.txt"
+    "create test.txt" → "test.txt"
+    "create notes.txt to desktop" → "desktop/notes.txt""""
     import re
 
-    # Eğer zaten temiz path ise dokunma
-    if not any(v in raw.lower() for v in ["oluştur", "yarat", "oluşt", "yaz"]):
+    # If the path is already clean, do not touch it
+    if not any(v in raw.lower() for v in ["create", "yarat", "created", "yaz"]):
         return raw
 
-    # "masaüstünde/masaüstüne X oluştur" kalıbı
+    # "create X on/to desktop" pattern
     for alias in FOLDER_ALIAS_MAP.keys():
-        # "masaüstünde", "masaüstüne", "masaüstünü" vb.
-        pattern = rf'({re.escape(alias)}(?:n[de]|ne|nü|nı|ye|ya|de|da)?)\s+(.+?)(?:\s+(?:oluştur|yarat|oluşt|yaz).*)?$'
+        # "on desktop", "to desktop", "desktop" etc.
+        pattern = rf'({re.escape(alias)}(?:n[de]|what|nu|what|eat|or|in|to)?)\s+(.+?)(?:\s+(?:create|create|generate|write).*)?$'
         m = re.search(pattern, raw.lower(), re.IGNORECASE)
         if m:
             folder_part = alias  # canonical alias kullan
             file_part = m.group(2).strip()
-            # "oluştur" gibi fiilleri çıkar
-            file_part = re.sub(r'\s+(?:oluştur|yarat|oluşt|yaz|dosya\s+oluştur).*$', '', file_part, flags=re.IGNORECASE).strip()
+            # remove verbs like "create"
+            file_part = re.sub(r'\s+(?:create|create|create|write|file\s+create).*$', '', file_part, flags=re.IGNORECASE).strip()
             if file_part:
                 return f"{folder_part}/{file_part}"
             return folder_part
 
-    # Dosya adını doğrudan çıkar (geriye kalan kelimeler)
-    cleaned = re.sub(r'\s+(?:oluştur|yarat|oluşt|dosya\s+oluştur)\s*$', '', raw, flags=re.IGNORECASE).strip()
+    # Extract the filename directly (remaining words)
+    cleaned = re.sub(r'\s+(?:create|create|create|file\s+create)\s*$', '', raw, flags=re.IGNORECASE).strip()
     return cleaned
 
 
 def _clean_folder_keyword(raw: str) -> str:
-    """
-    "indirilenler klasörünü" → "indirilenler"
-    "belgeler klasörü" → "belgeler"
-    """
+    """"downloads folder" → "downloads"
+    "documents folder" → "documents""""
     import re
-    cleaned = re.sub(r'\s+(?:klasörünü|klasörü|dizini|dizinini|klasörüne|klasöründe)\s*$', '', raw, flags=re.IGNORECASE).strip()
-    cleaned = re.sub(r'\s+(?:aç|göster|listele)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'\s+(?:folder|folder|directory|directory|to folder|in folder)\s*$', '', raw, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'\s+(?:open|show|list)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
     return cleaned if cleaned else raw

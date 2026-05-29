@@ -29,8 +29,8 @@ class ExecutionPlan:
     @property
     def total_steps(self) -> int: return len(self.steps)
     def get_context_summary(self) -> str:
-        if not self.steps: return "Boş plan."
-        return f"Plan: {' → '.join(s.protocol_tag for s in self.steps)} ({self.total_steps} adım)"
+        if not self.steps: return "Empty plan."
+        return f"Plan: {' → '.join(s.protocol_tag for s in self.steps)} ({self.total_steps} step)"
 
 ALIAS_MAP = {
     "SEARCH": "GOOGLE_SEARCH", "GOOGLE": "GOOGLE_SEARCH", "YOUTUBE": "YT_SEARCH",
@@ -54,7 +54,7 @@ def parse_plan(response: str) -> Optional[ExecutionPlan]:
     if not body: return None
     steps = []; num = 0
     
-    # Bilinen protokol etiketleri — bu listede olmayan tag'ler adım olarak kabul EDİLMEZ
+    # Known protocol tags — tags not in this list are NOT considered steps
     KNOWN_TAGS = {
         "SPEAK", "FILE_WRITE", "FILE_READ", "FILE_CREATE", "FILE_DELETE", "FILE_LATEST",
         "APP_OPEN", "APP_KILL", "FOLDER_OPEN", "WEB_SEARCH", "WEB_OPEN",
@@ -84,12 +84,12 @@ def parse_plan(response: str) -> Optional[ExecutionPlan]:
         tag_upper = tag.strip().upper()
         tag_upper = ALIAS_MAP.get(tag_upper, tag_upper)
         
-        # Bilinen bir tag değilse → önceki adıma argüman olarak ekle (kod satırı vs.)
+        # If it is not a known tag → add it as an argument to the previous step (line of code etc.)
         if tag_upper not in KNOWN_TAGS:
             if steps:
-                # Önceki adımın argümanına satırı ekle (FILE_WRITE çok satırlı kod durumu)
+                # Add the line to the argument of the previous step (FILE_WRITE multi-line code case)
                 steps[-1].argument += "\n" + line
-            # Bilinmeyen tag'i adım olarak EKLEME
+            # ADD unknown tag as a step
             continue
         
         tag, arg = _apply_filters(tag, arg)
@@ -183,8 +183,8 @@ class PlannerEngine:
 [ALREADY COMPLETED]: {json.dumps(context['completed_steps'])}
 [CURRENT STATE]: {json.dumps(world_state)}
 
-Kalan adımlar için YENİ plan oluştur (tamamlanmış adımları TEKRARLAMA).
-SADECE JSON döndür: {{"nodes": [{{"id": "s1", "type": "tool_call", "action": "TOOL_TAG", "params": {{}}, "deps": []}}]}}"""
+Create NEW plan for remaining steps (DO NOT REPEAT completed steps).
+Return JSON ONLY: {{"nodes": [{{"id": "s1", "type": "tool_call", "action": "TOOL_TAG", "params": {{}}, "deps": []}}]}}"""
 
         try:
             response = await self.brain.think(prompt)
@@ -208,9 +208,9 @@ SADECE JSON döndür: {{"nodes": [{{"id": "s1", "type": "tool_call", "action": "
     def _build_prompt(self, goal: str, state: Dict[str, Any]) -> str:
         return f"""[GOAL]: {goal}
 [STATE]: {json.dumps(state)}
-Görev için DAG plan oluştur. Her adım küçük ve doğrulanabilir olsun.
-Node tipleri: tool_call, reasoning, memory_retrieval, validation, reflection
-SADECE JSON: {{"reasoning_trace": "...", "nodes": [{{"id": "s1", "type": "tool_call", "action": "TOOL", "params": {{}}, "deps": [], "max_retries": 3}}]}}"""
+Create DAG plan for the task. Let each step be small and verifiable.
+Node types: tool_call, reasoning, memory_retrieval, validation, reflection
+JSON ONLY: {{"reasoning_trace": "...", "nodes": [{{"id": "s1", "type": "tool_call", "action": "TOOL", "params": {{}}, "deps": [], "max_retries": 3}}]}}"""
 
     def _build_graph(self, goal: str, data: Dict[str, Any]) -> ExecutionGraph:
         graph = ExecutionGraph(task_id=f"plan_{goal[:8]}")

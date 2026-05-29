@@ -11,13 +11,11 @@ from typing import Callable, Optional
 logger = logging.getLogger("JARVIS.MemoryManager")
 
 class MemoryManager:
-    """
-    J.A.R.V.I.S. v2 Smart Memory Manager  [10/10 Upgrade]
+    """J.A.R.V.I.S. v2 Smart Memory Manager [10/10 Upgrade]
 
-    ChromaDB tabanlı semantik hafıza.
-    + get_display_memories()  → GUI HAFIZA sekmesi için yapılandırılmış liste
-    + _on_save_callback       → Kayıt anında GUI'ye "öğrendim" bildirimi
-    """
+    ChromaDB based semantic memory.
+    + get_display_memories() → Configured list for GUI MEMORY tab
+    + _on_save_callback → "I learned" notification to GUI at save time"""
 
     def __init__(self, db_path: str = "./memory_db", max_memory_limit: int = 10000):
         db_path_str = str(db_path)
@@ -32,7 +30,7 @@ class MemoryManager:
         self.embedding_func = None
         self.logger = logger
 
-        # [10/10] Kayıt bildirimi için callback
+        # [10/10] Callback for registration notification
         self._on_save_callback: Optional[Callable[[str, str, float], None]] = None
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -40,14 +38,12 @@ class MemoryManager:
     # ─────────────────────────────────────────────────────────────────────────
 
     def set_on_save_callback(self, callback: Callable[[str, str, float], None]) -> None:
-        """
-        Yeni bir hafıza kaydedildiğinde çağrılacak fonksiyon.
-        callback(text: str, memory_type: str, importance: float)
-        """
+        """The function to be called when a new memory is saved.
+        callback(text: str, memory_type: str, importance: float)"""
         self._on_save_callback = callback
 
     # ─────────────────────────────────────────────────────────────────────────
-    # BAŞLATMA
+    # INITIALIZATION
     # ─────────────────────────────────────────────────────────────────────────
 
     def initialize(self):
@@ -55,7 +51,7 @@ class MemoryManager:
             if self.db_path != ":memory:" and not os.path.exists(self.db_path):
                 os.makedirs(self.db_path, exist_ok=True)
 
-            self.logger.info(f"[MEMORY] Başlatılıyor: {self.db_path}")
+            self.logger.info(f"[MEMORY] Starting: {self.db_path}")
 
             self.client = chromadb.PersistentClient(path=self.db_path)
 
@@ -68,10 +64,10 @@ class MemoryManager:
                 embedding_function=self.embedding_func,
                 metadata={"hnsw:space": "cosine"}
             )
-            self.logger.info("[MEMORY] Smart Memory Manager başarıyla başlatıldı.")
+            self.logger.info("[MEMORY] Smart Memory Manager has been started successfully.")
 
         except Exception as e:
-            self.logger.error(f"[MEMORY INIT ERROR] Kritik hata: {e}")
+            self.logger.error(f"[MEMORY INIT ERROR] Critical error: {e}")
             self.collection = None
 
     def migrate_legacy_memory(self, file_path: str):
@@ -81,7 +77,7 @@ class MemoryManager:
         if self.collection.count() > 0:
             return
 
-        self.logger.info(f"[MIGRATION] {safe_path} üzerinden veriler taşınıyor...")
+        self.logger.info(f"[MIGRATION] Migrating data via {safe_path}...")
         try:
             with open(safe_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
@@ -95,13 +91,13 @@ class MemoryManager:
                     if len(parts) >= 2:
                         name = parts[0].strip()
                         number = parts[1].strip()
-                        content = f"Rehber Kaydı: {name} kişisinin telefon numarası {number}"
+                        content = f"Contacts Entry: Phone number of {name} {number}"
                         self.save_memory(content, "semantic", {"importance": 0.9, "source": "legacy_md",
                                                                "contact_name": name, "phone": number})
                 elif ":" in line and not line.startswith("#"):
                     self.save_memory(line, "semantic", {"importance": 1.0, "source": "legacy_md"})
 
-            self.logger.info("[MIGRATION] Başarıyla tamamlandı.")
+            self.logger.info("[MIGRATION] Completed successfully.")
             os.rename(safe_path, safe_path + ".bak")
 
         except Exception as e:
@@ -120,7 +116,7 @@ class MemoryManager:
 
         allowed_types = ["episodic", "semantic", "task", "pattern_rule"]
         if memory_type not in allowed_types:
-            raise ValueError(f"Geçersiz memory_type: '{memory_type}'")
+            raise ValueError(f"Invalid memory_type: '{memory_type}'")
 
         clean_text = self._preprocess_query(text)
 
@@ -149,7 +145,7 @@ class MemoryManager:
             )
             self._enforce_limit()
 
-            # [10/10] Kayıt bildirimi
+            # [10/10] Registration notification
             if self._on_save_callback:
                 try:
                     self._on_save_callback(text, memory_type, metadata["importance"])
@@ -159,7 +155,7 @@ class MemoryManager:
             return doc_id
 
         except Exception as e:
-            self.logger.error(f"[MEMORY SAVE ERROR] Veri yazılamadı: {e}")
+            self.logger.error(f"[MEMORY SAVE ERROR] Failed to write data: {e}")
             return None
 
     async def save_memory_async(self, text: str, memory_type: str, metadata: dict = None) -> str:
@@ -226,7 +222,7 @@ class MemoryManager:
             return memories[:top_k]
 
         except Exception as e:
-            self.logger.error(f"[MEMORY RETRIEVE ERROR] Sorgu hatası: {e}")
+            self.logger.error(f"[MEMORY RETRIEVE ERROR] Query error: {e}")
             return []
 
     def retrieve_context(self, query: str, n: int = 3, distance_threshold: float = 0.35) -> str:
@@ -246,7 +242,7 @@ class MemoryManager:
             relevant = [doc for doc, dist in zip(docs, dists) if dist < distance_threshold]
             return "\n".join(relevant) if relevant else ""
         except Exception as e:
-            logger.warning(f"[MEMORY] retrieve_context hatası: {e}")
+            logger.warning(f"[MEMORY] retrieve_context error: {e}")
             return ""
 
     def get_recent_memories(self, n: int = 10) -> str:
@@ -265,17 +261,16 @@ class MemoryManager:
             recent_docs = [item[0] for item in sorted_items[:min(n, count)]]
             return "\n".join(recent_docs)
         except Exception as e:
-            logger.warning(f"[MEMORY] get_recent_memories hatası: {e}")
+            logger.warning(f"[MEMORY] get_recent_memories error: {e}")
             return ""
 
     # ─────────────────────────────────────────────────────────────────────────
-    # [10/10] GUI İÇİN HAFIZA LİSTESİ
+    # [10/10] MEMORY LIST FOR GUI
     # ─────────────────────────────────────────────────────────────────────────
 
     def get_display_memories(self, n: int = 50) -> list:
-        """
-        GUI HAFIZA sekmesi için yapılandırılmış hafıza listesi döndürür.
-        Her öğe:
+        """Returns a list of configured memory for the GUI MEMORY tab.
+        Each item:
           {
             "text": str,
             "memory_type": str,       # episodic | semantic | task | pattern_rule
@@ -283,8 +278,7 @@ class MemoryManager:
             "timestamp": float,       # unix epoch
             "age_label": str,         # "2 saat önce" / "3 gün önce" vb.
           }
-        En yeni kayıtlar önce gelir.
-        """
+        Newest records come first."""
         if not hasattr(self, 'collection') or self.collection is None:
             return []
         try:
@@ -303,11 +297,11 @@ class MemoryManager:
                 ts = meta.get('timestamp', now)
                 age_sec = now - ts
                 if age_sec < 3600:
-                    age_label = f"{int(age_sec // 60)} dk önce"
+                    age_label = f"{int(age_sec // 60)} minutes ago"
                 elif age_sec < 86400:
-                    age_label = f"{int(age_sec // 3600)} saat önce"
+                    age_label = f"{int(age_sec // 3600)} hours ago"
                 else:
-                    age_label = f"{int(age_sec // 86400)} gün önce"
+                    age_label = f"{int(age_sec // 86400)} days ago"
 
                 result.append({
                     "text": doc,
@@ -319,14 +313,12 @@ class MemoryManager:
             return result
 
         except Exception as e:
-            logger.warning(f"[MEMORY] get_display_memories hatası: {e}")
+            logger.warning(f"[MEMORY] get_display_memories error: {e}")
             return []
 
     def get_stats(self) -> dict:
-        """
-        [10/10] GUI için özet istatistikler.
-        Returns: {"total": int, "by_type": {type: count}, "avg_importance": float}
-        """
+        """[10/10] Summary statistics for GUI.
+        Returns: {"total": int, "by_type": {type: count}, "avg_importance": float}"""
         if not hasattr(self, 'collection') or self.collection is None:
             return {"total": 0, "by_type": {}, "avg_importance": 0.0}
         try:
@@ -348,7 +340,7 @@ class MemoryManager:
                 "avg_importance": round(total_imp / count, 3) if count else 0.0
             }
         except Exception as e:
-            logger.warning(f"[MEMORY] get_stats hatası: {e}")
+            logger.warning(f"[MEMORY] get_stats error: {e}")
             return {"total": 0, "by_type": {}, "avg_importance": 0.0}
 
     # ─────────────────────────────────────────────────────────────────────────

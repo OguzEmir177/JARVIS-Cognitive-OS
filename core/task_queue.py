@@ -1,32 +1,30 @@
-"""
-[V8.0] J.A.R.V.I.S. Async Task Queue
+"""[V8.0] J.A.R.V.I.S. Async Task Queue
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-asyncio.PriorityQueue üzerine kurulu görev kuyruğu.
+Task queue built on asyncio.PriorityQueue.
 
-Sorumluluklar:
-    - Öncelikli görev sıralaması
-    - Timeout destekli put/get
-    - CancelledError yönetimi
-    - Toplu iptal (cancel_all)
+Responsibilities:
+    - Priority task ordering
+    - Put/get with timeout support
+    - CancelledError management
+    - Bulk cancellation (cancel_all)
 
-Tasarım Kararları:
-    Neden asyncio.PriorityQueue?
-    → threading.Queue yerine asyncio-native çözüm.
-    → Priority desteği: acil görevler (shutdown, error recovery)
-      normal görevlerin önüne geçebilir.
-    → CancelledError doğal olarak asyncio ile çalışır.
+Design Decisions:
+    Why asyncio.PriorityQueue?
+    → asyncio-native solution instead of threading.Queue.
+    → Priority support: urgent tasks (shutdown, error recovery)
+      can get in the way of normal tasks.
+    → CancelledError works natively with asyncio.
 
-    Neden wrapper class?
-    → Raw PriorityQueue'ya timeout, cancel_all, metrics gibi
-      özellikler eklemek için.
-    → İleride Redis/RabbitMQ'ya geçiş noktası (genişletilebilirlik).
+    Why wrapper class?
+    → Add timeout, cancel_all, metrics to Raw PriorityQueue
+      to add features.
+    → Future migration point to Redis/RabbitMQ (extensibility).
 
 Edge Cases:
-    - Queue full iken put → asyncio.QueueFull (maxsize ile)
-    - Get sırasında cancel → CancelledError propagate
-    - cancel_all sırasında yeni put → queue boşaltıldıktan sonra kabul
-    - Aynı priority'de 2 görev → FIFO (insertion order)
-"""
+    - When the queue is full put → asyncio.QueueFull (with maxsize)
+    - Cancel → CancelledError propagate during Get
+    - new put during cancel_all → accepted after queue is emptied
+    - 2 tasks in the same priority → FIFO (insertion order)"""
 
 import asyncio
 import logging
@@ -38,16 +36,14 @@ logger = logging.getLogger("JARVIS.TaskQueue")
 
 
 class TaskPriority(IntEnum):
-    """
-    Görev öncelik seviyeleri.
-    Düşük sayı = yüksek öncelik (PriorityQueue convention).
+    """Task priority levels.
+    Low number = high priority (PriorityQueue convention).
 
-    Kullanım:
+    Usage:
         CRITICAL → shutdown, error recovery
-        HIGH     → kullanıcının aktif beklediği görevler
-        NORMAL   → standart görevler
-        LOW      → arka plan görevleri (reflection, memory write)
-    """
+        HIGH → tasks that the user is actively waiting for
+        NORMAL → standard quests
+        LOW → background tasks (reflection, memory write)"""
     CRITICAL = 0
     HIGH = 10
     NORMAL = 50
@@ -56,37 +52,33 @@ class TaskPriority(IntEnum):
 
 @dataclass(order=True)
 class QueueItem:
-    """
-    PriorityQueue'ya konulacak sarmalayıcı.
+    """Wrapper to put into PriorityQueue.
 
-    PriorityQueue karşılaştırma için __lt__ kullanır.
-    @dataclass(order=True) ile priority alanına göre sıralama yapılır.
-    'payload' karşılaştırma dışı bırakılır (compare=False).
+    PriorityQueue uses __lt__ for comparison.
+    Sorting is done according to the priority field with @dataclass(order=True).
+    'payload' is excluded from comparison (compare=False).
 
     Edge Case:
-        Aynı priority'de 2 item → sequence_number ile FIFO garantisi.
-        Bu olmadan, payload türleri karşılaştırılamaz ise TypeError fırlar.
-    """
+        FIFO guarantee with 2 items → sequence_number in the same priority.
+        Without this, TypeError will be thrown if payload types cannot be compared."""
     priority: int
     sequence_number: int = field(compare=True)
     payload: Any = field(compare=False, default=None)
 
 
 class TaskQueue:
-    """
-    AsyncIO tabanlı öncelikli görev kuyruğu.
+    """AsyncIO based prioritized task queue.
 
-    engine.py ile uyumlu API:
+    API compatible with engine.py:
         queue = TaskQueue(maxsize=50)
         await queue.put(payload, priority=TaskPriority.NORMAL)
         item = await queue.get(timeout=10.0)
         await queue.cancel_all()
 
     Attributes:
-        _queue:     asyncio.PriorityQueue instance
-        _counter:   Monoton artan sequence numarası (FIFO tiebreaker)
-        _cancelled: Global cancel flag (cancel_all sonrası yeni get engellemek için)
-    """
+        _queue: asyncio.PriorityQueue instance
+        _counter: Monotonically increasing sequence number (FIFO tiebreaker)
+        _cancelled: Global cancel flag (to prevent new gets after cancel_all)"""
 
     def __init__(self, maxsize: int = 50) -> None:
         self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue(
@@ -95,7 +87,7 @@ class TaskQueue:
         self._counter: int = 0
         self._cancelled: bool = False
 
-        logger.info(f"TaskQueue oluşturuldu (maxsize={maxsize})")
+        logger.info(f"TaskQueue created (maxsize={maxsize})")
 
     # ── PUT ──
 
@@ -105,25 +97,23 @@ class TaskQueue:
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout: Optional[float] = None,
     ) -> None:
-        """
-        Kuyruğa görev ekler.
+        """Adds a task to the queue.
 
         Args:
-            payload:  Görev verisi (task_id, callable, dict vb.)
-            priority: Öncelik seviyesi (düşük sayı = yüksek öncelik)
-            timeout:  Kuyruk doluysa maksimum bekleme süresi (None = sonsuz)
+            payload: Task data (task_id, callable, dict etc.)
+            priority: Priority level (low number = high priority)
+            timeout: Maximum waiting time if the queue is full (None = infinite)
 
         Raises:
-            asyncio.QueueFull: Timeout doldu ve kuyruk hala dolu
-            RuntimeError:      Queue cancel edilmiş durumda
+            asyncio.QueueFull: Timeout has expired and the queue is still full
+            RuntimeError: Queue has been canceled
 
         Edge Case:
-            cancel_all() çağrıldıktan sonra put → RuntimeError.
-            Rationale: Shutdown sırasında yeni görev kabul etmemeli.
-        """
+            put → RuntimeError after cancel_all() is called.
+            Rationale: Should not accept new missions during shutdown."""
         if self._cancelled:
             raise RuntimeError(
-                "TaskQueue iptal edilmiş durumda, yeni görev kabul edilemiyor."
+                "TaskQueue is canceled, new task cannot be accepted."
             )
 
         item = QueueItem(
@@ -154,23 +144,21 @@ class TaskQueue:
     # ── GET ──
 
     async def get(self, timeout: Optional[float] = None) -> Any:
-        """
-        Kuyruktan en yüksek öncelikli görevi alır.
+        """Retrieves the highest priority task from the queue.
 
         Args:
-            timeout: Kuyruk boşsa maksimum bekleme süresi (None = sonsuz)
+            timeout: Maximum waiting time if the queue is empty (None = infinite)
 
         Returns:
-            Payload nesnesi (QueueItem sarmalayıcısı soyulur)
+            Payload object (QueueItem wrapper stripped)
 
         Raises:
-            asyncio.TimeoutError: Timeout doldu, kuyruk hala boş
-            asyncio.CancelledError: Task iptal edildi (propagate edilir)
+            asyncio.TimeoutError: Timeout expired, queue still empty
+            asyncio.CancelledError: Task has been canceled (propagate)
 
         Edge Case:
-            CancelledError → engine tarafında yakalanır, task failed olur.
-            Bu queue'nun sorumluluğu değil, sadece propagate eder.
-        """
+            CancelledError → is caught by the engine and becomes task failed.
+            This is not the queue's responsibility, it just propagates it."""
         try:
             if timeout is not None:
                 item: QueueItem = await asyncio.wait_for(
@@ -189,23 +177,21 @@ class TaskQueue:
             return item.payload
 
         except asyncio.CancelledError:
-            logger.warning("Queue get iptal edildi (CancelledError)")
+            logger.warning("Queue get canceled (CancelledError)")
             raise
 
     # ── CANCEL ALL ──
 
     async def cancel_all(self) -> int:
-        """
-        Kuyruktaki tüm bekleyen görevleri boşaltır.
-        engine.py shutdown sırasında çağırır.
+        """Clears all pending tasks from the queue.
+        engine.py calls during shutdown.
 
         Returns:
-            İptal edilen görev sayısı
+            Number of canceled tasks
 
         Edge Case:
-            Boş kuyrukta çağrılabilir → 0 döner, hata yok.
-            cancel_all sonrası yeni put → RuntimeError.
-        """
+            Callable on empty queue → returns 0, no errors.
+            new put → RuntimeError after cancel_all."""
         self._cancelled = True
         cancelled_count = 0
 
@@ -217,20 +203,18 @@ class TaskQueue:
             except asyncio.QueueEmpty:
                 break
 
-        logger.info(f"Queue cancel_all: {cancelled_count} görev iptal edildi.")
+        logger.info(f"Queue cancel_all: Quest {cancelled_count} has been cancelled.")
         return cancelled_count
 
     # ── RESET ──
 
     def reset(self) -> None:
-        """
-        Queue'yu yeniden kullanılabilir hale getirir.
-        Test ve recovery senaryoları için.
+        """Makes the queue reusable.
+        For test and recovery scenarios.
 
         Edge Case:
-            Queue'da hala item varsa → önce cancel_all çağrılmalı.
-            Bu metod sadece flag'i sıfırlar, queue'yu boşaltmaz.
-        """
+            If there is still an item in the queue → cancel_all should be called first.
+            This method only resets the flag, it does not empty the queue."""
         self._cancelled = False
         self._counter = 0
         logger.info("Queue resetlendi.")
@@ -239,12 +223,12 @@ class TaskQueue:
 
     @property
     def size(self) -> int:
-        """Kuyruktaki mevcut görev sayısı."""
+        """The current number of tasks in the queue."""
         return self._queue.qsize()
 
     @property
     def is_empty(self) -> bool:
-        """Kuyruk boş mu?"""
+        """Is the queue empty?"""
         return self._queue.empty()
 
     @property
@@ -254,5 +238,5 @@ class TaskQueue:
 
     @property
     def is_cancelled(self) -> bool:
-        """Queue iptal edilmiş durumda mı?"""
+        """Is the queue canceled?"""
         return self._cancelled

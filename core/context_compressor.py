@@ -126,7 +126,7 @@ class ContextCompressor:
                 topics.append(content)
         
         summary_text = (
-            f"[Önceki {len(messages)} mesaj özetlendi] "
+            f"[Previous {len(messages)} message summarized]"
             f"Son konular: {'; '.join(topics)}"
         )
         return {"role": "system", "content": summary_text}
@@ -136,12 +136,12 @@ class ContextCompressor:
         score = 0.5
         
         # Personal info markers (high value)
-        personal = ["adı", "isim", "yaş", "sevdiği", "tercih", "doğum"]
+        personal = ["ordinary", "isim", "age", "beloved", "tercih", "birth"]
         if any(w in line.lower() for w in personal):
             score += 0.4
         
         # Action/event markers (medium value)
-        action = ["başarılı", "hata", "kaydet", "hatırla", "önemli"]
+        action = ["successful", "hata", "kaydet", "remember", "important"]
         if any(w in line.lower() for w in action):
             score += 0.3
         

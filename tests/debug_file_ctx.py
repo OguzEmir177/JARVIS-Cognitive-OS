@@ -11,7 +11,7 @@ async def test():
     ctx = {}
 
     # FileCreate
-    result = await create_tool.execute({'file_path': 'masaüstünde jarvis_regression_test.txt oluştur'}, ctx)
+    result = await create_tool.execute({'file_path': 'create jarvis_regression_test.txt on desktop'}, ctx)
     laf = ctx.get("last_active_file")
     print("CREATE result:", result.success, result.message)
     print("last_active_file after CREATE:", laf)
@@ -22,7 +22,7 @@ async def test():
     print("WRITE result:", result2.success, result2.message)
     print("last_active_file after WRITE:", ctx.get("last_active_file"))
 
-    # Dosya içeriği
+    # File content
     if laf:
         p = Path(laf)
         if p.exists():

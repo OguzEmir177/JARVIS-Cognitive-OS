@@ -100,10 +100,10 @@ class CognitiveCore:
                 self._tool_router = SemanticRouter()
                 logger.info("SemanticRouter (Vector-based) loaded.")
             except ImportError as e:
-                logger.error(f"SemanticRouter ImportError: {e}. Lütfen requirements.txt kurulumlarını yapın.")
+                logger.error(f"SemanticRouter ImportError: {e}. Please install requirements.txt.")
                 self._router_loading = False
             except Exception as e:
-                logger.warning(f"SemanticRouter yüklenemedi: {e}")
+                logger.warning(f"Failed to load SemanticRouter: {e}")
                 self._router_loading = False
         return self._tool_router
 

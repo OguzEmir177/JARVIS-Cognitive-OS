@@ -1,25 +1,23 @@
-"""
-[V8.2] J.A.R.V.I.S. Task State Manager
+"""[V8.2] J.A.R.V.I.S. Task State Manager
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Her görevin lifecycle'ını yöneten merkezi state deposu.
+Central state repository that manages the lifecycle of each task.
 
-Sorumluluklar:
-    - TaskState oluşturma ve güncelleme
-    - Status transition kontrolü (pending → running → completed/failed)
-    - Metrik sorgulama (tüm görevler, başarı oranı)
+Responsibilities:
+    - Creating and updating TaskState
+    - Status transition control (pending → running → completed/failed)
+    - Metric query (all tasks, success rate)
 
-Tasarım Kararları:
+Design Decisions:
     - In-memory dict-based store (SQLite/Redis overkill)
-    - Thread-safe değil çünkü tek asyncio event loop'ta çalışıyor
-    - TaskState immutable değil — engine doğrudan field güncelleyebilir
-      (tool_history.append gibi) ama status transition'lar
-      StateManager üzerinden yapılmalı (tutarlılık)
+    - It is not thread-safe because it works in a single asyncio event loop
+    - TaskState is not immutable — the engine can update the field directly
+      (like tool_history.append) but status transitions
+      Must be done via StateManager (consistency)
 
 Edge Cases:
-    - Aynı task_id ile create_task çağrılırsa → uyarı logla, üzerine yaz
-    - Olmayan task_id ile fail/complete → KeyError yerine sessiz log
-    - elapsed_ms hesabı: start_time None ise 0 döner
-"""
+    - If create_task is called with the same task_id → log warning, overwrite
+    - Silent log instead of fail/complete → KeyError with non-existent task_id
+    - elapsed_ms account: returns 0 if start_time is None"""
 
 import time
 import logging
@@ -30,33 +28,31 @@ logger = logging.getLogger("JARVIS.StateManager")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  TASK STATE — Tekil Görev Durum Nesnesi
+# TASK STATE — Individual Task Status Object
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 @dataclass
 class TaskState:
-    """
-    Tek bir görevin yaşam döngüsü verisi.
+    """Lifecycle data of a single task.
 
-    Status Geçişleri:
+    Status Transitions:
         pending → running → completed
                          ↘ failed
 
     Attributes:
-        id:            Benzersiz görev kimliği (uuid kısaltması)
-        goal:          Kullanıcının orijinal isteği
-        status:        Mevcut durum (pending/running/failed/completed)
-        retries:       Kaç kez retry edildi
-        last_error:    Son hata mesajı (None ise hata yok)
-        tool_history:  Kullanılan araçların kaydı
-        outputs:       Görev çıktıları
-        start_time:    Görev başlangıç zamanı (monotonic)
-        end_time:      Görev bitiş zamanı (monotonic)
-        created_at:    Görev oluşturma zamanı (wall clock, loglar için)
-        _step_results: Adımlar arası bağlam aktarımı için {TAG: metin} deposu
-                       (repr'den gizlenir, sadece interpolasyon için kullanılır)
-    """
+        id: Unique task ID (abbreviation uuid)
+        goal: User's original request
+        status: Current status (pending/running/failed/completed)
+        retries: How many times has it been retried
+        last_error: Last error message (No error if None)
+        tool_history: Record of used tools
+        outputs: Task outputs
+        start_time: Task start time (monotonic)
+        end_time: Task end time (monotonic)
+        created_at: Task creation time (for wall clock, logs)
+        _step_results: {TAG: metin} repository for context transfer between steps
+                       (hidden from repr, used for interpolation only)"""
 
     id: str
     goal: str
@@ -73,16 +69,14 @@ class TaskState:
     # ── PLAN EXECUTOR API ────────────────────────────────────────────────
 
     def is_active(self) -> bool:
-        """
-        Görev hâlâ işlenebilir durumda mı?
+        """Is the task still processable?
 
-        plan_executor.execute_plan() her adım öncesi bunu kontrol eder;
-        görev dışarıdan fail/complete yapılmışsa döngü kırılır.
+        plan_executor.execute_plan() checks this before each step;
+        If the task is failed/completed externally, the loop is broken.
 
         Returns:
-            True  → pending veya running: adım yürütmeye devam et
-            False → completed veya failed: döngüyü kır
-        """
+            True → pending or running: continue step execution
+            False → completed or failed: break the loop"""
         return self.status in ("pending", "running")
 
     def add_tool_call(self, tag: str, arg: str, result_dict: dict) -> None:
@@ -96,7 +90,7 @@ class TaskState:
 
         data = result_dict.get("data", {}) or {}
         
-        # 🛡️ V8.2 FIX: GERÇEK DATA ÖNCELİKLİ OLMALI! (Eskiden 'speak' öncelikliydi)
+        # 🛡️ V8.2 FIX: ACTUAL DATA SHOULD BE PRIORITY! (In the past, 'speak' was the priority)
         interpolation_text = (
             str(data.get("summary", ""))
             or str(data.get("result", ""))
@@ -107,37 +101,33 @@ class TaskState:
 
         if tag and interpolation_text:
             if tag in self._step_results:
-                # Aynı araç tekrar kullanıldıysa, eski veriyi silme, yanına ekle!
-                self._step_results[tag] += f"\n\n--- EK SONUÇ ---\n{interpolation_text}"
+                # If the same tool was used again, do not delete the old data, add it next to it!
+                self._step_results[tag] += f"\n\n--- ADDITIONAL RESULT ---\n{interpolation_text}"
             else:
                 self._step_results[tag] = interpolation_text
             logger.debug(
-                f"[StateManager] _step_results['{tag}'] güncellendi "
+                f"[StateManager] _step_results['{tag}'] updated"
                 f"({len(interpolation_text)} karakter)"
             )
 
     def get_results(self) -> dict:
-        """
-        executor._interpolate_argument'ın beklediği {TAG: metin} sözlüğünü döndürür.
+        """Returns the {TAG: metin} dictionary that executor._interpolate_argument expects.
 
-        Kopya döndürülür: çağıran kod sözlüğü mutate etse bile iç depo korunur.
+        A copy is returned: the internal store is preserved even if the calling code mutates the dictionary.
 
         Returns:
-            Örnek: {"GOOGLE_SEARCH": "Messi Arjantin milli takımında...",
-                    "WEB_OPEN": "Sayfa açıldı."}
-        """
+            Example: {"GOOGLE_SEARCH": "Messi Arjantin milli takımında...",
+                    "WEB_OPEN": "Sayfa açıldı."}"""
         return dict(self._step_results)
 
     # ── PROPERTIES ──────────────────────────────────────────────────────
 
     @property
     def elapsed_ms(self) -> int:
-        """
-        Görev süresini milisaniye cinsinden döndürür.
+        """Returns the task duration in milliseconds.
 
-        Edge case: start_time henüz set edilmediyse → 0
-        Edge case: end_time henüz yok (hala çalışıyor) → şu ana kadar geçen süre
-        """
+        Edge case: if start_time is not set yet → 0
+        Edge case: end_time does not exist yet (still working) → time so far"""
         if self.start_time is None:
             return 0
         end = self.end_time if self.end_time is not None else time.monotonic()
@@ -145,7 +135,7 @@ class TaskState:
 
     @property
     def is_terminal(self) -> bool:
-        """Görev terminal durumda mı (completed veya failed)?"""
+        """Is the task in terminal state (completed or failed)?"""
         return self.status in ("completed", "failed")
 
     def __repr__(self) -> str:
@@ -157,36 +147,34 @@ class TaskState:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  STATE MANAGER — Merkezi Görev Deposu
+# STATE MANAGER — Central Task Repository
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
-# Geçerli status transition'ları — bunun dışında geçiş yapılamaz
+# Valid status transitions — no transitions beyond this
 _VALID_TRANSITIONS: Dict[str, set] = {
     "pending":   {"running"},
     "running":   {"completed", "failed"},
-    "completed": set(),       # Terminal — geçiş yok
-    "failed":    {"pending"},  # Retry durumunda tekrar pending'e alınabilir
+    "completed": set(),       # Terminal — no transition
+    "failed":    {"pending"},  # In case of retry, it can be put back into pending mode
 }
 
 
 class StateManager:
-    """
-    Görev durumlarını yöneten in-memory store.
+    """In-memory store that manages task states.
 
-    Kullanım (engine.py ile uyumlu):
+    Usage (compatible with engine.py):
         sm = StateManager()
-        task = sm.create_task(task_id="abc123", goal="Google'da arat")
+        task = sm.create_task(task_id="abc123", goal="Search on Google")
         sm.start_task("abc123")
-        sm.complete_task("abc123")  # veya sm.fail_task("abc123", "timeout")
+        sm.complete_task("abc123") # or sm.fail_task("abc123", "timeout")
 
         all_tasks = sm.get_all_tasks()
         metrics = sm.get_metrics()
 
     Thread Safety:
-        Tek asyncio loop'ta çalıştığı için lock gerekmez.
-        Eğer ileride multi-thread gerekirse asyncio.Lock eklenebilir.
-    """
+        Since it works in a single asyncio loop, no lock is required.
+        If multi-threading is required in the future, asyncio.Lock can be added."""
 
     def __init__(self) -> None:
         self._tasks: Dict[str, TaskState] = {}
@@ -194,15 +182,13 @@ class StateManager:
     # ── LIFECYCLE METHODS ──
 
     def create_task(self, task_id: str, goal: str) -> TaskState:
-        """
-        Yeni bir görev oluşturur ve 'running' durumuna alır.
+        """Creates a new task and puts it in 'running' state.
 
-        engine.py bunu çağırdıktan hemen sonra işleme başlıyor,
-        bu yüzden create + start birleştirildi.
-        """
+        engine.py starts processing immediately after calling this,
+        so create + start combined."""
         if task_id in self._tasks:
             logger.warning(
-                f"Task '{task_id}' zaten mevcut, üzerine yazılıyor. "
+                f"Task '{task_id}' already exists, being overwritten."
                 f"Eski durum: {self._tasks[task_id].status}"
             )
 
@@ -215,15 +201,15 @@ class StateManager:
         self._tasks[task_id] = task
 
         logger.info(
-            f"Task oluşturuldu ve başlatıldı: {task_id} → '{goal[:50]}'"
+            f"Task created and started: {task_id} → '{goal[:50]}'"
         )
         return task
 
     def complete_task(self, task_id: str) -> None:
-        """Görevi başarıyla tamamlandı olarak işaretler."""
+        """Marks the task as completed successfully."""
         task = self._tasks.get(task_id)
         if task is None:
-            logger.warning(f"complete_task: '{task_id}' bulunamadı.")
+            logger.warning(f"complete_task: '{task_id}' not found.")
             return
 
         if not self._can_transition(task, "completed"):
@@ -233,16 +219,16 @@ class StateManager:
         task.end_time = time.monotonic()
 
         logger.info(
-            f"Task tamamlandı: {task_id} "
-            f"(süre: {task.elapsed_ms}ms, "
+            f"Task completed: {task_id}"
+            f"(duration: {task.elapsed_ms}ms,"
             f"tools: {len(task.tool_history)})"
         )
 
     def fail_task(self, task_id: str, reason: str) -> None:
-        """Görevi başarısız olarak işaretler."""
+        """Marks the task as failed."""
         task = self._tasks.get(task_id)
         if task is None:
-            logger.warning(f"fail_task: '{task_id}' bulunamadı.")
+            logger.warning(f"fail_task: '{task_id}' not found.")
             return
 
         if not self._can_transition(task, "failed"):
@@ -253,15 +239,15 @@ class StateManager:
         task.end_time = time.monotonic()
 
         logger.error(
-            f"Task başarısız: {task_id} → {reason} "
-            f"(süre: {task.elapsed_ms}ms)"
+            f"Task failed: {task_id} → {reason}"
+            f"(duration: {task.elapsed_ms}ms)"
         )
 
     def retry_task(self, task_id: str) -> bool:
-        """Başarısız görevi yeniden deneme için pending'e alır."""
+        """Places the failed task on pending for retrying."""
         task = self._tasks.get(task_id)
         if task is None:
-            logger.warning(f"retry_task: '{task_id}' bulunamadı.")
+            logger.warning(f"retry_task: '{task_id}' not found.")
             return False
 
         if not self._can_transition(task, "pending"):
@@ -279,23 +265,22 @@ class StateManager:
     # ── QUERY METHODS ──
 
     def get_task(self, task_id: str) -> Optional[TaskState]:
-        """Tekil görev sorgulama. Returns: TaskState veya None."""
+        """Single task query. Returns: TaskState or None."""
         return self._tasks.get(task_id)
 
     def get_all_tasks(self) -> List[TaskState]:
-        """Tüm görevlerin listesini döndürür."""
+        """Returns the list of all tasks."""
         return list(self._tasks.values())
 
     def get_active_tasks(self) -> List[TaskState]:
-        """Henüz tamamlanmamış (running/pending) görevleri döndürür."""
+        """Returns tasks that have not yet been completed (running/pending)."""
         return [
             t for t in self._tasks.values()
             if not t.is_terminal
         ]
 
     def get_metrics(self) -> Dict[str, Any]:
-        """
-        Özet metrikleri döndürür.
+        """Returns summary metrics.
 
         Returns:
             {
@@ -305,8 +290,7 @@ class StateManager:
                 "running": int,
                 "success_rate": float (0.0 - 1.0),
                 "avg_duration_ms": float,
-            }
-        """
+            }"""
         all_tasks = self.get_all_tasks()
         total = len(all_tasks)
         completed = sum(1 for t in all_tasks if t.status == "completed")
@@ -332,19 +316,19 @@ class StateManager:
         }
 
     def clear(self) -> None:
-        """Tüm görev geçmişini temizler. Test ve reset için."""
+        """Clears all task history. For testing and reset."""
         count = len(self._tasks)
         self._tasks.clear()
-        logger.info(f"StateManager temizlendi: {count} görev silindi.")
+        logger.info(f"StateManager cleared: Task {count} deleted.")
 
     # ── INTERNAL ──
 
     def _can_transition(self, task: TaskState, target_status: str) -> bool:
-        """Status transition'ın geçerli olup olmadığını kontrol eder."""
+        """Status checks whether the transition is valid."""
         valid_targets = _VALID_TRANSITIONS.get(task.status, set())
         if target_status not in valid_targets:
             logger.warning(
-                f"Geçersiz transition: {task.id} "
+                f"Invalid transition: {task.id}"
                 f"'{task.status}' → '{target_status}' "
                 f"(izin verilen: {valid_targets})"
             )

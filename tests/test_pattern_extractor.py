@@ -12,15 +12,15 @@ def mock_memory():
 def test_extract_patterns_creates_rule(mock_memory):
     # Setup mock data for 2 failed APP_OPEN discord calls
     # side_effect listesi: 
-    #   1. get() çağrısı: episodic çekimi (extract_patterns listeleme için)
-    #   2. get() çağrısı: kural zaten var mı diye kontrol çekimi (already_exists)
+    # 1. get() call: episodic capture (for listing extract_patterns)
+    # 2. get() call: check if the rule already exists (already_exists)
     mock_memory.collection.get.side_effect = [
         # First call (episodic listesi)
         {
             "documents": [
-                "Görev: APP_OPEN discord. Sonuç: failure. Hata: uygulama bulunamadı.",
-                "Görev: APP_OPEN discord. Sonuç: failure. Hata: beklenmeyen hata.",
-                "Görev: WEB_OPEN google.com. Sonuç: success" # Should ignore success
+                "Task: APP_OPEN discord. Result: failure. Error: application not found.",
+                "Task: APP_OPEN discord. Result: failure. Error: unexpected error.",
+                "Task: WEB_OPEN google.com. Result: success" # Should ignore success
             ],
             "metadatas": [
                 {"outcome": "failure", "tool_used": "APP_OPEN", "memory_type": "episodic"},
@@ -28,7 +28,7 @@ def test_extract_patterns_creates_rule(mock_memory):
                 {"outcome": "success", "tool_used": "WEB_OPEN", "memory_type": "episodic"}
             ]
         },
-        # Second call (hali hazırda rules kontrolü)
+        # Second call (currently rules control)
         {
             "documents": [],
             "metadatas": []
@@ -38,13 +38,13 @@ def test_extract_patterns_creates_rule(mock_memory):
     extractor = PatternExtractor(memory=mock_memory)
     extractor.extract_patterns()
 
-    # extract_patterns, doc'tan "discord" hedef olarak çıkarıp len=2 failed bulduktan sonra 
-    # rule oluşturmalı ve self.save_pattern() ile kaydetmeli.
-    expected_rule = "APP_OPEN ile 'discord' açma 2 kez başarısız oldu. Alternatif: WEB_OPEN discord.com"
+    # extract_patterns, after extracting "discord" from the doc as target and finding len=2 failed
+    # Create the rule and save it with self.save_pattern().
+    expected_rule = "Opening 'discord' with APP_OPEN failed 2 times. Alternative: WEB_OPEN discord.com"
     
     mock_memory.save_memory.assert_called_once()
     args, kwargs = mock_memory.save_memory.call_args
-    # 1. parametre kural test, 2. parametre "pattern_rule", 3. parametre metadata olmalı
+    # 1st parameter should be rule test, 2nd parameter should be "pattern_rule", 3rd parameter should be metadata
     assert expected_rule == args[0]
     assert args[1] == "pattern_rule"
     
@@ -53,23 +53,23 @@ def test_extract_patterns_creates_rule(mock_memory):
     assert metadata["importance"] == 0.95
 
 def test_extract_patterns_no_duplicate_rule(mock_memory):
-    # Setup mock data (Kural önceden öğrenilmişse tekrar öğrenmemeli)
+    # Setup mock data (If the rule has been learned before, it should not be learned again)
     mock_memory.collection.get.side_effect = [
-        # İlk episodic araması
+        # First episodic search
         {
             "documents": [
-                "Görev: APP_OPEN spotify. Sonuç: failure.",
-                "Görev: APP_OPEN spotify. Sonuç: failure."
+                "Task: APP_OPEN spotify. Result: failure.",
+                "Task: APP_OPEN spotify. Result: failure."
             ],
             "metadatas": [
                 {"outcome": "failure", "tool_used": "APP_OPEN"},
                 {"outcome": "failure", "tool_used": "APP_OPEN"}
             ]
         },
-        # İkinci rule araması: zatan var olduğunu varsayalım
+        # Second rule search: assume it already exists
         {
             "documents": [
-                "APP_OPEN ile 'spotify' açma 2 kez başarısız oldu. Alternatif: WEB_OPEN spotify.com"
+                "Opening 'spotify' with APP_OPEN failed 2 times. Alternative: WEB_OPEN spotify.com"
             ],
             "metadatas": [{"memory_type": "pattern_rule", "importance": 0.95}]
         }
@@ -78,13 +78,13 @@ def test_extract_patterns_no_duplicate_rule(mock_memory):
     extractor = PatternExtractor(memory=mock_memory)
     extractor.extract_patterns()
 
-    # Daha önce kural çıkarılmış, kayıt yapılmamalı
+    # Rule has been issued before, no registration should be made
     mock_memory.save_memory.assert_not_called()
 
 def test_get_active_patterns(mock_memory):
     # Setup data
     mock_memory.collection.get.return_value = {
-        "documents": ["Kural 1: Test kural", "Kural 2: İkinci kural"],
+        "documents": ["Kural 1: Test kural", "Rule 2: Second rule"],
         "metadatas": [{"memory_type": "pattern_rule"}, {"memory_type": "pattern_rule"}]
     }
 
@@ -92,6 +92,6 @@ def test_get_active_patterns(mock_memory):
     result = extractor.get_active_patterns()
 
     assert "Kural 1: Test kural" in result
-    assert "Kural 2: İkinci kural" in result
+    assert "Rule 2: Second rule" in result
     
     mock_memory.collection.get.assert_called_with(where={"memory_type": "pattern_rule"})

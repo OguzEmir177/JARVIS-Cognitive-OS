@@ -5,24 +5,20 @@ from typing import Optional
 logger = logging.getLogger("JARVIS.PatternExtractor")
 
 class PatternExtractor:
-    """
-    Kullanıcının başarısız denemelerinden desenler çıkararak
-    sistemin gelecekte aynı hatalara düşmesini engelleyen öğrenme modülü.
-    """
+    """By extracting patterns from the user's unsuccessful attempts
+    Learning module that prevents the system from making the same mistakes in the future."""
     
     def __init__(self, memory):
         self.memory = memory
 
     def extract_patterns(self) -> None:
-        """
-        ChromaDB'deki 'failure' outcome'lu episodic kayıtları okur.
-        Aynı tool ile 2+ başarısız deneme varsa bir 'kural' üretir.
-        """
+        """Reads episodic records with 'failure' outcome in ChromaDB.
+        If there are 2+ unsuccessful attempts with the same tool, it generates a 'rule'."""
         if not self.memory or not getattr(self.memory, 'collection', None):
             return
 
         try:
-            # "episodic" olan tüm bellekleri al
+            # get all memory that is "episodic"
             results = self.memory.collection.get(
                 where={"memory_type": "episodic"}
             )
@@ -33,15 +29,15 @@ class PatternExtractor:
             docs = results["documents"]
             metadatas = results["metadatas"]
             
-            # Başarısız işlemleri (tool ve tahmini hedefe göre) grupla
+            # Group failed operations (by tool and estimated target)
             failures_by_tool = {}
             
             for doc, meta in zip(docs, metadatas):
                 if meta.get("outcome") == "failure":
                     tool = meta.get("tool_used", "UNKNOWN")
                     
-                    # doc içinde "APP_OPEN discord" gibi bir kelime yakalamaya çalışalım
-                    # "Görev: APP_OPEN discord. Sonuç: failure."
+                    # Let's try to catch a word like "APP_OPEN discord" in the doc
+                    # "Task: APP_OPEN discord. Result: failure."
                     match = re.search(f"{tool}\\s+([^\\.]+)", doc, re.IGNORECASE)
                     if match:
                         target = match.group(1).strip()
@@ -55,13 +51,13 @@ class PatternExtractor:
             
             for (tool, target), fail_docs in failures_by_tool.items():
                 if len(fail_docs) >= 2:
-                    # Hedefe ulaşılamadığında mantıklı bir alternatif içeren örnek bir kural
+                    # An example rule with a logical alternative when the goal cannot be achieved
                     if tool == "APP_OPEN":
-                        rule_text = f"{tool} ile '{target}' açma {len(fail_docs)} kez başarısız oldu. Alternatif: WEB_OPEN {target}.com"
+                        rule_text = f"Opening '{target}' with {tool} failed {len(fail_docs)} times. Alternative: WEB_OPEN {target}.com"
                     else:
-                        rule_text = f"{tool} işlemi '{target}' için {len(fail_docs)} kez başarısız oldu. Alternatif yollar deneyin."
+                        rule_text = f"Operation {tool} failed {len(fail_docs)} times for '{target}'. Try alternative routes."
 
-                    # Kuralın hafızada olup olmadığını kontrol et
+                    # Check if the rule is in memory
                     existing_rules = self.memory.collection.get(
                         where={"memory_type": "pattern_rule"}
                     )
@@ -76,30 +72,26 @@ class PatternExtractor:
                         self.save_pattern(rule_text)
 
         except Exception as e:
-            logger.error(f"[PatternExtractor] extract_patterns çalıştırılırken hata: {e}")
+            logger.error(f"[PatternExtractor] Error running extract_patterns: {e}")
 
     def save_pattern(self, rule_text: str) -> None:
-        """
-        Üretilen kuralı hafızaya pattern_rule olarak kaydeder.
-        """
+        """It saves the generated rule in memory as pattern_rule."""
         metadata = {
             "memory_type": "pattern_rule",
             "importance": 0.95,
             "auto_generated": True
         }
-        # memory.py'nin save_memory() metodu allow types kontrolü yapıyor mu diye kontrol edilir
+        # Check if memory.py's save_memory() method checks allow types
         # memory.py'yi inceledik: -> allowed_types = ["episodic", "semantic", "task"]
-        # Bekle! "pattern_rule" listede değil!
-        # memory.py'de allowed_types içine "pattern_rule" eklenmesi gerekebilir!
-        # Ancak constraint: "MemoryManager.save_memory() imzası DEĞİŞMEMELİ". İşleyişi değişebilir.
+        # Wait! "pattern_rule" is not listed!
+        # Might need to add "pattern_rule" to allowed_types in memory.py!
+        # But constraint: "MemoryManager.save_memory() signature MUST NOT CHANGE". Its operation may change.
         
         self.memory.save_memory(rule_text, "pattern_rule", metadata)
-        logger.info(f"[PatternExtractor] Yeni Kural Öğrenildi ve Kaydedildi: {rule_text}")
+        logger.info(f"[PatternExtractor] New Rule Learned and Saved: {rule_text}")
 
     def get_active_patterns(self) -> str:
-        """
-        Aktif öğrenilmiş kuralları string olarak döner.
-        """
+        """Active learned rules are returned as string."""
         if not self.memory or not getattr(self.memory, 'collection', None):
             return ""
             
@@ -112,6 +104,6 @@ class PatternExtractor:
                 return "\n".join(results["documents"])
                 
         except Exception as e:
-            logger.warning(f"[PatternExtractor] get_active_patterns çekilirken hata: {e}")
+            logger.warning(f"[PatternExtractor] Error pulling get_active_patterns: {e}")
             
         return ""

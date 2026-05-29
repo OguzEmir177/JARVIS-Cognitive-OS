@@ -1,35 +1,33 @@
-"""
-[V8.0] J.A.R.V.I.S. Tool Executor
+"""[V8.0] J.A.R.V.I.S. ToolExecutor
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Tool Registry üzerinden araç bulup çalıştıran katman.
+The layer that finds and runs tools via the Tool Registry.
 
-Sorumluluklar:
-    - Protocol tag → tool eşleştirme
-    - Parametre hazırlama (arg → param dict)
-    - Async tool execution (blocking tool'lar run_in_executor ile)
-    - Metadata-tabanlı fallback tool seçimi
-    - Tool çalışma süresini ölçme
+Responsibilities:
+    - Protocol tag → tool matching
+    - Parameter preparation (arg → param dict)
+    - Async tool execution (blocking tools with run_in_executor)
+    - Metadata-based fallback tool selection
+    - Measuring tool working time
 
-Tasarım Kararları:
-    Neden Executor ayrı bir class?
-    → engine.py'yi tool çalıştırma detaylarından soyutlar.
-    → Tool seçim mantığı (metadata, fallback) tek yerde.
-    → Tool'lar engine state'e dokunmaz kuralını executor zorlar
-      (engine_context salt-okunur dict olarak geçirilir).
+Design Decisions:
+    Why is Executor a separate class?
+    → It abstracts engine.py from tool execution details.
+    → Tool selection logic (metadata, fallback) in one place.
+    → The rule that tools do not touch the engine state is enforced by the executor
+      (engine_context is passed as a read-only dict).
 
-    Neden execute_tool() async?
-    → Playwright tool'lar native async.
-    → Blocking tool'lar (pyautogui, subprocess) için
-      run_in_executor() kullanılır.
-    → Engine asyncio.wait_for(timeout) ile sarabilir.
+    Why is execute_tool() async?
+    → Playwright tools native async.
+    → For blocking tools (pyautogui, subprocess)
+      run_in_executor() is used.
+    → Engine can wrap with asyncio.wait_for(timeout).
 
 Edge Cases:
-    - Bilinmeyen protocol_tag → ToolExecutionError
-    - Tool.execute() exception fırlatırsa → ToolExecutionError'a sar
-    - Fallback tool bulunamazsa → None döner (engine karar verir)
-    - Tool süresi config.tool_timeout_seconds'ı aşarsa →
-      engine tarafında TimeoutError (executor'ın sorumluluğu değil)
-"""
+    - Unknown protocol_tag → ToolExecutionError
+    - If Tool.execute() throws exception → wrap it in ToolExecutionError
+    - If Fallback tool is not found → Returns to None (decided by engine)
+    - If tool time exceeds config.tool_timeout_seconds →
+      TimeoutError on engine side (not executor's responsibility)"""
 
 import asyncio
 import logging
@@ -48,20 +46,19 @@ from core.telemetry import telemetry
 logger = logging.getLogger("JARVIS.Executor")
 
 
-# Metadata artık tool class'larında tanımlı (domain, latency_ms, reliability_score)
-# Fallback zincirleri tools/tool_registry.py'de tanımlı (FALLBACK_CHAINS)
+# Metadata is now defined in tool classes (domain, latency_ms, reliability_score)
+# Fallback chains are defined in tools/tool_registry.py (FALLBACK_CHAINS)
 
 
 class Executor:
-    """
-    Tool çalıştırma ve fallback yönetim katmanı.
+    """Tool execution and fallback management layer.
 
-    engine.py ile uyumlu API:
+    API compatible with engine.py:
         executor = Executor(brain, memory, config)
 
         result = await executor.execute_tool(
             protocol_tag="GOOGLE_SEARCH",
-            argument="Python dersleri",
+            argument="Python lessons",
             engine_context={"last_whatsapp_num": None},
         )
 
@@ -74,12 +71,11 @@ class Executor:
         await executor.cleanup()
 
     Attributes:
-        registry:   ToolRegistry instance (tüm tool'lar burada kayıtlı)
-        brain:      GroqBrain reference (tool'ların LLM erişimi gerekirse)
-        memory:     MemoryManager reference (tool context'e eklenir)
-        config:     EngineConfig reference
-        _metadata:  Tool metadata cache
-    """
+        registry: ToolRegistry instance (all tools are registered here)
+        brain: GroqBrain reference (if LLM access to tools is required)
+        memory: MemoryManager reference (added to tool context)
+        config: EngineConfig reference
+        _metadata: Tool metadata cache"""
 
     def __init__(
         self,
@@ -91,11 +87,11 @@ class Executor:
         self.memory = memory
         self.config = config or EngineConfig()
 
-        # Tool Registry — tools/ paketi üzerinden
+        # Tool Registry — via tools/ package
         self.registry: ToolRegistry = create_default_registry()
 
         logger.info(
-            f"Executor başlatıldı: {self.registry.count} tool kayıtlı → "
+            f"Executor started: {self.registry.count} tool registered →"
             f"{self.registry.all_tags}"
         )
 
@@ -109,25 +105,23 @@ class Executor:
         argument: str = "",
         engine_context: Optional[Dict[str, Any]] = None,
     ) -> ToolResult:
-        """
-        Belirtilen protocol_tag'e karşılık gelen tool'u bulur ve çalıştırır.
+        """Finds and runs the tool corresponding to the specified protocol_tag.
 
         Args:
-            protocol_tag:   Tool'un protokol etiketi (ör: "GOOGLE_SEARCH")
-            argument:       Tool'a geçilecek argüman (ör: "Python dersleri")
-            engine_context: Engine tarafından sağlanan salt-okunur bağlam
+            protocol_tag: Protocol tag of the Tool (e.g. "GOOGLE_SEARCH")
+            argument: The argument to pass to the Tool (ex: "Python lessons")
+            engine_context: Read-only context provided by the engine
 
         Returns:
-            ToolResult — tool'un çalışma sonucu
+            ToolResult — the result of the tool's execution
 
         Raises:
-            ToolExecutionError: Tool bulunamadı veya execute() exception fırlattı
+            ToolExecutionError: Tool not found or execute() threw exception
 
         Edge Cases:
-            - Bilinmeyen tag → Registry alias check → hala yoksa hata
-            - Tool.execute() blocking ise → run_in_executor ile async sarılır
-            - Tool None dönerse → ToolResult(success=False) üretilir
-        """
+            - Unknown tag → Registry alias check → still missing error
+            - If Tool.execute() is blocking → async is wrapped with run_in_executor
+            - If Tool returns None → ToolResult(success=False) is produced"""
         tool = self.registry.get_by_protocol(protocol_tag)
 
         if tool is None:
@@ -138,15 +132,15 @@ class Executor:
                 tool_name=protocol_tag,
             )
 
-        # Interpolation (Bağlam Aktarımı)
+        # Interpolation (Context Transfer)
         interpolated_arg = self._interpolate_argument(argument, engine_context)
 
-        # Parametre hazırlama — ilk parametre = argüman
+        # Parameter preparation — first parameter = argument
         params = self._build_params(tool, interpolated_arg)
         ctx = engine_context or {}
-        ctx["brain"] = self.brain  # [V9.0] Dosya özetleme için beyin referansını ekle
+        ctx["brain"] = self.brain  # [V9.0] Add brain reference for file summarization
 
-        # Pre-speak (uzun süren tool'lar için)
+        # Pre-speak (for long-running tools)
         if hasattr(tool, "pre_speak") and tool.pre_speak:
             logger.info(f"Tool pre_speak: {tool.pre_speak[:40]}...")
 
@@ -186,7 +180,7 @@ class Executor:
                 result = ToolResult(
                     success=False,
                     verified=False,
-                    message=f"{tool.name} None döndürdü.",
+                    message=f"{tool.name} returned None.",
                 )
 
             duration_ms = int((time.monotonic() - start_time) * 1000)
@@ -197,12 +191,12 @@ class Executor:
 
         except asyncio.TimeoutError:
             duration_ms = int((time.monotonic() - start_time) * 1000)
-            logger.error(f"Tool timeout: {tool.name} (süre: {duration_ms}ms, limit={timeout}s)")
+            logger.error(f"Tool timeout: {tool.name} (time: {duration_ms}ms, limit={timeout}s)")
             return ToolResult(
                 success=False,
                 verified=False,
                 error="Timeout",
-                message=f"Görev zaman aşımına uğradı ({timeout:.0f}s limiti aşıldı)."
+                message=f"Task timed out ({timeout:.0f}s limit exceeded)."
             )
         except Exception as e:
             duration_ms = int((time.monotonic() - start_time) * 1000)
@@ -218,11 +212,11 @@ class Executor:
             )
             logger.error(
                 f"Tool exception: {tool.name} → {e} "
-                f"(süre: {duration_ms}ms)",
+                f"(duration: {duration_ms}ms)",
                 exc_info=True,
             )
             raise ToolExecutionError(
-                message=f"{tool.name} çalıştırılırken hata: {str(e)[:100]}",
+                message=f"Error running {tool.name}: {str(e)[:100]}",
                 tool_name=tool.name,
                 original_error=e,
             )
@@ -258,34 +252,32 @@ class Executor:
         argument: str = "",
         engine_context: Optional[Dict[str, Any]] = None,
     ) -> Optional[ToolResult]:
-        """
-        Başarısız tool için fallback zincirinden alternatif dener.
+        """For the unsuccessful tool, it tries an alternative from the fallback chain.
 
-        Fallback seçim mantığı:
-            1. FALLBACK_CHAINS'den sıralı alternatifler alınır
-            2. Her alternatif execute_tool() ile denenir
-            3. İlk başarılı sonuç döndürülür
-            4. Hiçbiri başarılı olmazsa None döner
+        Fallback selection logic:
+            1. Ordered alternatives are retrieved from FALLBACK_CHAINS
+            2. Each alternative is tried with execute_tool()
+            3. The first successful result is returned
+            4. If all else fails, None is returned.
 
         Args:
-            protocol_tag:   Başarısız olan orijinal tool'un tag'i
-            argument:       Orijinal argüman (fallback'e de aynısı verilir)
-            engine_context: Salt-okunur engine bağlamı
+            protocol_tag: Tag of the original failed tool
+            argument: Original argument (the same is given to fallback)
+            engine_context: Read-only engine context
 
         Returns:
-            ToolResult: Başarılı fallback sonucu
-            None:       Hiçbir fallback çalışmadı
+            ToolResult: Successful fallback result
+            None: No fallback worked
 
         Edge Cases:
-            - Fallback zinciri tanımlı değilse → None (sessiz)
-            - Fallback tool da başarısız → zincirdeki sonraki denenrir
-            - Fallback tool da exception → logla, sonrakine geç
-        """
+            - If fallback chain is not defined → None (silent)
+            - Fallback tool also fails → next try in the chain
+            - Exception in Fallback tool → log, go to next"""
         fallback_tools = self.registry.get_fallback_chain(protocol_tag)
 
         if not fallback_tools:
             logger.info(
-                f"Fallback zinciri yok: {protocol_tag}"
+                f"No fallback chain: {protocol_tag}"
             )
             return None
 
@@ -302,12 +294,12 @@ class Executor:
                 )
                 if result.success:
                     logger.info(
-                        f"Fallback başarılı: {fallback_tag}"
+                        f"Fallback successful: {fallback_tag}"
                     )
                     return result
                 else:
                     logger.warning(
-                        f"Fallback başarısız: {fallback_tag} → {result.message}"
+                        f"Fallback failed: {fallback_tag} → {result.message}"
                     )
             except ToolExecutionError as e:
                 logger.warning(
@@ -316,7 +308,7 @@ class Executor:
                 continue
 
         logger.warning(
-            f"Tüm fallback'ler başarısız: {protocol_tag} → {fallback_tools}"
+            f"All fallbacks fail: {protocol_tag} → {fallback_tools}"
         )
         return None
 
@@ -325,9 +317,7 @@ class Executor:
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def get_tool_metadata(self, protocol_tag: str) -> Dict[str, Any]:
-        """
-        Tool'un metadata'sını doğrudan tool class'ından okur.
-        """
+        """It reads the tool's metadata directly from the tool class."""
         tool = self.registry.get_by_protocol(protocol_tag)
         if tool:
             return {
@@ -338,9 +328,7 @@ class Executor:
         return {}
 
     def get_best_tool_for_domain(self, domain: str) -> Optional[str]:
-        """
-        Registry üzerinden domain'de en iyi tool'u döndürür.
-        """
+        """It returns the best tool in the domain via the registry."""
         best = self.registry.get_best_tool(domain)
         return best.protocol_tag if best else None
 
@@ -349,33 +337,29 @@ class Executor:
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def cleanup(self) -> None:
-        """
-        Executor kaynakalarını temizler.
-        engine.py shutdown sırasında çağırır.
-        Playwright browser instance kapatılır.
-        """
+        """Cleans Executor resources.
+        engine.py calls during shutdown.
+        Playwright browser instance is closed."""
         try:
             from tools.browser_tool import BrowserManager
             await BrowserManager.close()
         except Exception as e:
-            logger.warning(f"Browser cleanup hatası: {e}")
-        logger.info("Executor cleanup tamamlandı.")
+            logger.warning(f"Browser cleanup error: {e}")
+        logger.info("Executor cleanup completed.")
 
     @staticmethod
     def _interpolate_argument(argument: str, context: Optional[Dict[str, Any]]) -> str:
-        """
-        Argüman içindeki [PROTOCOL: TAG] yer tutucularını önceki adımların sonuçlarıyla değiştirir.
-        """
+        """Replaces the [PROTOCOL: TAG] placeholders within the argument with the results of the previous steps."""
         if not argument or not context or "step_results" not in context:
             return argument
 
-        # [V8.2] Hem [PROTOCOL: TAG] hem de [STEP: TAG] formatını destekle
+        # [V8.2] Support both [PROTOCOL: TAG] and [STEP: TAG] format
         pattern = r"\[(?:PROTOCOL|STEP):\s*(\w+)\]"
         results = context.get("step_results", {})
 
         def _replace(match):
             tag = match.group(1)
-            # Eğer o tag ile bir sonuç varsa enjekte et, yoksa yer tutucuyu bırak
+            # If there is a result with that tag, inject it, otherwise leave the placeholder
             return str(results.get(tag, match.group(0)))
 
         return re.sub(pattern, _replace, argument)
@@ -386,25 +370,23 @@ class Executor:
 
     @staticmethod
     def _build_params(tool: BaseTool, argument: str) -> Dict[str, Any]:
-        """
-        [V15.0] Tool parametre şemasına göre argument → param dict.
+        """[V15.0] According to the tool parameter scheme argument → param dict.
 
-        FILE_* tool'ları için özel eşleştirme:
-          FILE_WRITE  → file_path_and_content: argument
+        Special mapping for FILE_* tools:
+          FILE_WRITE → file_path_and_content: argument
           FILE_CREATE → file_path: argument
-          FILE_READ   → file_path: argument
+          FILE_READ → file_path: argument
           FILE_DELETE → file_path: argument
           FOLDER_OPEN → folder_path: argument
           FILE_LATEST → dir_path: argument
 
-        Diğer tool'lar: ilk parametre ismine argument.
-        """
+        Other tools: argument to the first parameter name."""
         if not tool.parameters:
             return {}
 
         argument = argument or ""
 
-        # [V15.0] FILE tool'ları için kesin param isimleri
+        # [V15.0] Strict param names for FILE tools
         FILE_PARAM_MAP = {
             "FILE_WRITE":  "file_path_and_content",
             "FILE_CREATE": "file_path",

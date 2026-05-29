@@ -57,7 +57,7 @@ async def test_execute_tool_exception(base_executor):
     
     with pytest.raises(ToolExecutionError) as exc:
         await base_executor.execute_tool("MOCK_TOOL")
-    assert "çalıştırılırken hata" in exc.value.message
+    assert "error while running" in exc.value.message
 
 @pytest.mark.asyncio
 async def test_execute_tool_returns_none(base_executor):
@@ -66,7 +66,7 @@ async def test_execute_tool_returns_none(base_executor):
     
     result = await base_executor.execute_tool("MOCK_TOOL")
     assert result.success is False
-    assert "None döndürdü" in result.message
+    assert "returned None" in result.message
 
 @pytest.mark.asyncio
 async def test_try_fallback_success(base_executor):

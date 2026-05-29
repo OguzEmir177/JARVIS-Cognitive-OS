@@ -1,16 +1,14 @@
-"""
-[V9.1] J.A.R.V.I.S. File Tool Test Suite
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FILE_READ, FILE_WRITE, FILE_SUMMARIZE düzeltme testleri.
+"""[V9.1] J.A.R.V.I.S. File Tool Test Suite
+━━━━━━━━━━━━━━━━━━━━ ━━━━━━━━━━━━━━━━━━━━━
+FILE_READ, FILE_WRITE, FILE_SUMMARIZE correction tests.
 
-Test Kategorileri:
-    - Alias çözümleme (_resolve_alias)
-    - Dizin listeleme (FILE_READ → is_dir)
-    - Dosya okuma (mevcut davranış korunuyor)
-    - Dosya yazma (alias desteği)
-    - Parameters format doğrulaması
-    - Hata senaryoları
-"""
+Test Categories:
+    - Alias resolution (_resolve_alias)
+    - Directory listing (FILE_READ → is_dir)
+    - Reading files (current behavior is preserved)
+    - File writing (alias support)
+    - Parameters format verification
+    - Error scenarios"""
 
 import asyncio
 import pytest
@@ -28,7 +26,7 @@ from tools.base_tool import ToolResult
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  ALIAS ÇÖZÜMLEMESİ
+# ALIAS ANALYSIS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
@@ -36,8 +34,8 @@ class TestResolveAlias:
     """_resolve_alias() fonksiyonu testleri."""
 
     def test_masaustu_alias(self):
-        """'masaüstü' → ~/Desktop."""
-        result = _resolve_alias("masaüstü")
+        """'desktop' → ~/Desktop."""
+        result = _resolve_alias("desktop")
         assert result == Path.home() / "Desktop"
 
     def test_desktop_alias(self):
@@ -56,23 +54,23 @@ class TestResolveAlias:
         assert result == Path.home() / "Downloads"
 
     def test_case_insensitive(self):
-        """Büyük/küçük harf duyarsız olmalı."""
-        result = _resolve_alias("MASAÜSTÜ")
+        """It should be case insensitive."""
+        result = _resolve_alias("DESKTOP")
         assert result == Path.home() / "Desktop"
 
     def test_no_alias_match(self):
-        """Alias eşleşmezse orijinal yol döner."""
+        """If the alias does not match, the original path is returned."""
         result = _resolve_alias("C:\\some\\random\\path")
         assert result == Path("C:\\some\\random\\path")
 
     def test_partial_match(self):
-        """Alias, yolun bir parçası olarak da eşleşmeli."""
-        result = _resolve_alias("masaüstü/dosyalar")
+        """Alias ​​should also match part of the way."""
+        result = _resolve_alias("desktop/files")
         assert result == Path.home() / "Desktop"
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  FILE_READ TESTLERİ
+# FILE_READ TESTS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
@@ -81,7 +79,7 @@ class TestFileReadTool:
 
     @pytest.mark.asyncio
     async def test_empty_path(self):
-        """Boş yol → success=False."""
+        """Empty path → success=False."""
         tool = FileReadTool()
         result = await tool.execute({"file_path": ""}, {})
         assert result.success is False
@@ -89,29 +87,29 @@ class TestFileReadTool:
 
     @pytest.mark.asyncio
     async def test_nonexistent_path(self):
-        """Var olmayan dosya → success=False."""
+        """Non-existent file → success=False."""
         tool = FileReadTool()
         result = await tool.execute(
             {"file_path": "C:\\nonexistent\\file.txt"}, {}
         )
         assert result.success is False
-        assert "bulunamadı" in result.message
+        assert "not found" in result.message
 
     @pytest.mark.asyncio
     async def test_read_file(self, tmp_path):
-        """Normal dosya okuma çalışmalı."""
+        """Normal file reading should work."""
         test_file = tmp_path / "test.txt"
-        test_file.write_text("Merhaba Dünya", encoding="utf-8")
+        test_file.write_text("Hello world", encoding="utf-8")
 
         tool = FileReadTool()
         result = await tool.execute({"file_path": str(test_file)}, {})
         assert result.success is True
-        assert result.data["content"] == "Merhaba Dünya"
+        assert result.data["content"] == "Hello world"
         assert result.data["file_name"] == "test.txt"
 
     @pytest.mark.asyncio
     async def test_list_directory(self, tmp_path):
-        """Dizin yolu verilince dosyaları listele."""
+        """List files given directory path."""
         (tmp_path / "a.txt").touch()
         (tmp_path / "b.pdf").touch()
         (tmp_path / "c.docx").touch()
@@ -125,41 +123,41 @@ class TestFileReadTool:
 
     @pytest.mark.asyncio
     async def test_list_directory_with_alias(self):
-        """'masaüstü' alias'ı ile dizin listeleme."""
+        """Directory listing with alias 'desktop'."""
         tool = FileReadTool()
         desktop = Path.home() / "Desktop"
         if not desktop.exists():
-            pytest.skip("Desktop klasörü yok")
+            pytest.skip("There is no desktop folder")
 
-        result = await tool.execute({"file_path": "masaüstü"}, {})
+        result = await tool.execute({"file_path": "desktop"}, {})
         assert result.success is True
         assert "files" in result.data
 
     @pytest.mark.asyncio
     async def test_large_directory_speak_truncation(self, tmp_path):
-        """10'dan fazla dosya varsa speak mesajında '... ve N tane daha'."""
+        """If there are more than 10 files, the speak message will say '... and N more'."""
         for i in range(15):
             (tmp_path / f"file_{i}.txt").touch()
 
         tool = FileReadTool()
         result = await tool.execute({"file_path": str(tmp_path)}, {})
         assert result.success is True
-        assert "5 tane daha" in result.speak
+        assert "5 more" in result.speak
 
     @pytest.mark.asyncio
     async def test_file_truncation(self, tmp_path):
-        """Büyük dosya kırpılmalı."""
+        """Large file should be cropped."""
         test_file = tmp_path / "big.txt"
         test_file.write_text("X" * 10000, encoding="utf-8")
 
         tool = FileReadTool()
         result = await tool.execute({"file_path": str(test_file)}, {})
         assert result.success is True
-        assert "[...dosya kırpıldı...]" in result.data["content"]
+        assert "[...file clipped...]" in result.data["content"]
 
     @pytest.mark.asyncio
     async def test_parameters_format(self):
-        """Parameters JSON Schema formatında olmalı."""
+        """Parameters must be in JSON Schema format."""
         tool = FileReadTool()
         params = tool.parameters
         assert "file_path" in params
@@ -168,7 +166,7 @@ class TestFileReadTool:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  FILE_WRITE TESTLERİ
+# FILE_WRITE TESTS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
@@ -197,28 +195,28 @@ class TestFileWriteTool:
 
     @pytest.mark.asyncio
     async def test_write_creates_parent_dirs(self, tmp_path):
-        """Üst dizinleri otomatik oluşturmalı."""
+        """It should create parent directories automatically."""
         target = tmp_path / "a" / "b" / "c.txt"
         tool = FileWriteTool()
         result = await tool.execute(
-            {"file_path_and_content": f"{target}|İçerik"}, {}
+            {"file_path_and_content": f"{target}|Content"}, {}
         )
         assert result.success is True
         assert target.exists()
 
     @pytest.mark.asyncio
     async def test_write_dir_only_error(self, tmp_path):
-        """Sadece dizin verilirse → hata."""
+        """→ error if only directory is given."""
         tool = FileWriteTool()
         result = await tool.execute(
-            {"file_path_and_content": f"{tmp_path}|İçerik"}, {}
+            {"file_path_and_content": f"{tmp_path}|Content"}, {}
         )
         assert result.success is False
-        assert "dosya adı" in result.message.lower()
+        assert "file name" in result.message.lower()
 
     @pytest.mark.asyncio
     async def test_write_parameters_format(self):
-        """Parameters JSON Schema formatında olmalı."""
+        """Parameters must be in JSON Schema format."""
         tool = FileWriteTool()
         params = tool.parameters
         assert "file_path_and_content" in params
@@ -227,7 +225,7 @@ class TestFileWriteTool:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  FILE_SUMMARIZE TESTLERİ
+# FILE_SUMMARIZE TESTS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
@@ -247,7 +245,7 @@ class TestFileSummarizeTool:
 
     @pytest.mark.asyncio
     async def test_summarize_directory_fails(self, tmp_path):
-        """Dizin özetlenemez → success=False."""
+        """Index cannot be summarized → success=False."""
         (tmp_path / "a.txt").touch()
         tool = FileSummarizeTool()
         result = await tool.execute({"file_path": str(tmp_path)}, {})
@@ -256,7 +254,7 @@ class TestFileSummarizeTool:
 
     @pytest.mark.asyncio
     async def test_summarize_parameters_format(self):
-        """Parameters JSON Schema formatında olmalı."""
+        """Parameters must be in JSON Schema format."""
         tool = FileSummarizeTool()
         params = tool.parameters
         assert "file_path" in params
@@ -269,10 +267,10 @@ class TestFileSummarizeTool:
 
 
 class TestExportSchemasIntegration:
-    """file_tool parameters → export_schemas() uyumluluğu."""
+    """file_tool parameters → export_schemas() compatibility."""
 
     def test_export_schemas_no_crash(self):
-        """Düzeltilen parameters formatı export_schemas()'ı kırmıyor."""
+        """Fixed parameters format does not break export_schemas()."""
         from tools.tool_registry import ToolRegistry
         registry = ToolRegistry()
         registry.register(FileReadTool())
@@ -286,7 +284,7 @@ class TestExportSchemasIntegration:
         assert "FILE_SUMMARIZE" in schema_text
 
     def test_schema_contains_type(self):
-        """Export edilen schema'da parametre tipi görünmeli."""
+        """The parameter type must appear in the exported schema."""
         from tools.tool_registry import ToolRegistry
         registry = ToolRegistry()
         registry.register(FileReadTool())

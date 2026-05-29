@@ -31,19 +31,19 @@ class ReflectionEngine:
 
         # Tool verification rules (tool_tag → expected behavior)
         self._verification_rules = {
-            "APP_OPEN": {"expect_in_result": ["opened", "açıldı", "başlatıldı", "running"],
-                         "fail_indicators": ["not found", "bulunamadı", "error", "hata"]},
-            "WEB_SEARCH": {"expect_in_result": ["http", "result", "sonuç", "found"],
+            "APP_OPEN": {"expect_in_result": ["opened", "opened", "started", "running"],
+                         "fail_indicators": ["not found", "not found", "error", "hata"]},
+            "WEB_SEARCH": {"expect_in_result": ["http", "result", "conclusion", "found"],
                            "fail_indicators": ["no results", "timeout", "error"]},
-            "WEB_OPEN": {"expect_in_result": ["opened", "açıldı", "navigated"],
+            "WEB_OPEN": {"expect_in_result": ["opened", "opened", "navigated"],
                          "fail_indicators": ["failed", "error", "timeout"]},
-            "WHATSAPP_MESSAGE": {"expect_in_result": ["sent", "gönderildi", "delivered"],
+            "WHATSAPP_MESSAGE": {"expect_in_result": ["sent", "sent", "delivered"],
                                  "fail_indicators": ["failed", "error", "not sent"]},
-            "REMEMBER": {"expect_in_result": ["saved", "stored", "kaydedildi", "hafızaya"],
+            "REMEMBER": {"expect_in_result": ["saved", "stored", "kaydedildi", "to memory"],
                          "fail_indicators": ["error", "failed"]},
-            "MAP_SHOW": {"expect_in_result": ["map", "harita", "gösterildi", "location"],
+            "MAP_SHOW": {"expect_in_result": ["map", "harita", "shown", "location"],
                          "fail_indicators": ["error", "not found"]},
-            "CHART_SHOW": {"expect_in_result": ["chart", "grafik", "rendered", "oluşturuldu"],
+            "CHART_SHOW": {"expect_in_result": ["chart", "grafik", "rendered", "created"],
                            "fail_indicators": ["error", "failed"]},
         }
 
@@ -166,12 +166,12 @@ class ReflectionEngine:
         prompt = f"""[GOAL]: {goal}
 [EXECUTION]: {json.dumps(nodes[:5], indent=1)}
 
-Kritik analiz yap:
-1. Sonuçlar hedefe uygun mu?
-2. Herhangi bir halüsinasyon var mı?
-3. Eksik adım var mı?
+Make critical analysis:
+1. Are the results on target?
+2. Are there any hallucinations?
+3. Are there any steps missing?
 
-SADECE JSON döndür:
+Return JSON ONLY:
 {{"score": 0.0-1.0, "is_satisfactory": bool, "missing_elements": [], "action_recommendation": "finalize|retry_step|replan", "recommended_params": {{}}}}"""
 
         try:

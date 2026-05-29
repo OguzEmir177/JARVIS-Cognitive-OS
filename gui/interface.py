@@ -1,16 +1,14 @@
-"""
-J.A.R.V.I.S. — Visual Control Interface  [10/10 Upgrade]
+"""J.A.R.V.I.S. — Visual Control Interface [10/10 Upgrade]
 Iron Man HUD Style | Dark Blue Theme
 gui/interface.py
 
-Yenilikler:
-  + HAFIZA sekmesi: canlı hafıza listesi, istatistik grafiği, yenile butonu
-  + display_chart_card(): gerçek matplotlib grafik → CTkImage olarak kart içinde render
-  + display_card()      : image_path varsa PIL ile görsel yükler ve gösterir
-  + Toast bildirimi     : "Öğrendim ✓" — hafıza kaydedilince 3 sn görünür
-  + Vision Status       : HUD sol paneline ekran analizi özeti
-  + Grafik kartı renk teması: Jarvis mavi-cyan palette
-"""
+Innovations:
+  + MEMORY tab: live memory list, statistics graph, refresh button
+  + display_chart_card(): actual matplotlib chart → rendered in card as CTkImage
+  + display_card(): Loads and displays an image with PIL if the image_path exists
+  + Toast notification: "I learned ✓" — appears for 3 seconds when the memory is saved
+  + Vision Status: Display analysis summary to HUD left panel
+  + Graphics card color theme: Jarvis blue-cyan palette"""
 
 import customtkinter as ctk
 import tkinter as tk
@@ -34,7 +32,7 @@ try:
     HAS_STATICMAP = True
 except ImportError:
     HAS_STATICMAP = False
-# Matplotlib — GUI thread dışında çizim için Agg backend
+# Matplotlib — Agg backend for plotting outside the GUI thread
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -67,7 +65,7 @@ LOG_ERROR   = "#FF6B35"
 LOG_SYSTEM  = "#446680"
 LOG_OK      = "#00E87A"
 
-# Grafik renkleri (matplotlib için hex)
+# Plot colors (hex for matplotlib)
 CHART_COLORS = ["#00C8FF", "#FF6B35", "#00E87A", "#9B59B6", "#F1C40F",
                 "#E74C3C", "#3498DB", "#2ECC71", "#E67E22", "#1ABC9C"]
 
@@ -75,10 +73,10 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
-# ── Matplotlib Yardımcıları ──────────────────────────────────────────────────
+# ── Matplotlib Helpers ───────────────────────── ─────────────────────────
 
 def _fig_to_ctk_image(fig: Figure, width: int = 460, height: int = 230) -> "ctk.CTkImage | None":
-    """Matplotlib figure → CTkImage dönüştürücü. Pillow gerektirir."""
+    """Matplotlib figure → CTkImage converter. Requires Pillow."""
     if not HAS_PIL:
         return None
     try:
@@ -95,7 +93,7 @@ def _fig_to_ctk_image(fig: Figure, width: int = 460, height: int = 230) -> "ctk.
 
 
 def _apply_jarvis_style(fig: Figure, ax):
-    """Tüm grafiklere J.A.R.V.I.S. koyu temasını uygular."""
+    """All graphics are J.A.R.V.I.S. Applies the dark theme."""
     fig.patch.set_facecolor(BG_CARD)
     ax.set_facecolor("#060F20")
     ax.tick_params(colors=TEXT_MAIN, labelsize=7)
@@ -119,7 +117,7 @@ def render_bar_chart(data: dict, title: str) -> "ctk.CTkImage | None":
     ax.set_ylabel(ylabel, fontsize=7)
     ax.set_title(title, fontsize=8, pad=6)
     _apply_jarvis_style(fig, ax)
-    # Değer etiketleri
+    # Value labels
     for bar, val in zip(bars, values):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max(values) * 0.02,
                 str(val), ha='center', va='bottom', color=TEXT_MAIN, fontsize=7)
@@ -148,7 +146,7 @@ def render_line_chart(data: dict, title: str) -> "ctk.CTkImage | None":
 
 
 def render_area_chart(data: dict, title: str) -> "ctk.CTkImage | None":
-    """Çizgi + doldurulmuş alan — line ile aynı, daha belirgin dolgu."""
+    """Line + filled area — same as line, more specific fill."""
     labels = data.get("labels", [])
     values = data.get("values", [])
     ylabel = data.get("ylabel", "")
@@ -192,7 +190,7 @@ def render_pie_chart(data: dict, title: str) -> "ctk.CTkImage | None":
 
 
 def render_chart(chart_type: str, data: dict, title: str) -> "ctk.CTkImage | None":
-    """Grafik türüne göre doğru renderer'ı çağırır."""
+    """Calls the correct renderer based on the graphics type."""
     dispatch = {
         "bar":  render_bar_chart,
         "line": render_line_chart,
@@ -208,10 +206,8 @@ def render_chart(chart_type: str, data: dict, title: str) -> "ctk.CTkImage | Non
 
 def render_map_card(lat: float, lon: float, zoom: int = 13,
                     width: int = 460, height: int = 260) -> "ctk.CTkImage | None":
-    """
-    OpenStreetMap tile'larından statik harita görüntüsü oluşturur.
-    staticmap kütüphanesi gerektirir: pip install staticmap
-    """
+    """Creates a static map image from OpenStreetMap tiles.
+    Requires staticmap library: pip install staticmap"""
     if not HAS_STATICMAP or not HAS_PIL:
         return None
     try:
@@ -221,10 +217,10 @@ def render_map_card(lat: float, lon: float, zoom: int = 13,
         pil_img = m.render(zoom=zoom)
         return ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(width, height))
     except Exception as e:
-        logger.warning(f"[MAP] Harita oluşturulamadı: {e}")
+        logger.warning(f"[MAP] Failed to create map: {e}")
         return None
 
-# ── Stdout Yönlendirici ───────────────────────────────────────────────────────
+# ── Stdout Router ─────────────────────────── ────────────────────────────
 class GUIStream(io.IOBase):
     def __init__(self, callback):
         self.callback = callback
@@ -250,11 +246,11 @@ class GUIStream(io.IOBase):
     def seekable(self): return False
 
 
-# ── Ana GUI Sınıfı ────────────────────────────────────────────────────────────
+# ── Main GUI Class ────────────────────────────── ──────────────────────────────
 class JarvisInterface:
     def __init__(self):
         self.root = ctk.CTk()
-        self.root.title("J.A.R.V.I.S. — Sistem Kontrol Merkezi")
+        self.root.title("J.A.R.V.I.S. — System Control Center")
         self.root.geometry("1100x760")
         self.root.minsize(900, 640)
         self.root.configure(fg_color=BG_DEEP)
@@ -265,10 +261,10 @@ class JarvisInterface:
         self.root.geometry(f"+{(sw - 1100) // 2}+{(sh - 760) // 2}")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        # Durum değişkenleri
+        # State variables
         self.text_mode   = False
         self.input_queue = queue.Queue()
-        self._status     = "BAŞLATILIYOR"
+        self._status     = "STARTING"
         self._running    = True
         self._anim_angle = 0.0
         self._anim_pulse = 0.0
@@ -276,10 +272,10 @@ class JarvisInterface:
         self._anim_glow  = 0.0
         self.engine      = None
 
-        # [10/10] Vision son özet
-        self._last_vision_summary = "Henüz analiz yapılmadı."
+        # [10/10] Vision final summary
+        self._last_vision_summary = "No analysis has been made yet."
 
-        # [10/10] Toast kuyruğu
+        # [10/10] Toast tail
         self._toast_queue: queue.Queue = queue.Queue()
         self._toast_visible = False
 
@@ -290,10 +286,10 @@ class JarvisInterface:
         self._poll_toast()
 
     # ─────────────────────────────────────────────────────────────────────────
-    # UI İNŞASI
+    # UI BUILDING
     # ─────────────────────────────────────────────────────────────────────────
     def _build_ui(self):
-        # Üst Bar
+        # Top Bar
         topbar = tk.Frame(self.root, bg="#030810", height=52)
         topbar.pack(fill="x", side="top")
         topbar.pack_propagate(False)
@@ -305,14 +301,14 @@ class JarvisInterface:
         tk.Label(topbar, text="JUST A RATHER VERY INTELLIGENT SYSTEM",
                  font=("Consolas", 8), fg=TEXT_DIM, bg="#030810").pack(side="left", pady=16)
 
-        self.version_lbl = tk.Label(topbar, text="● AKTİF   v2.0  ",
+        self.version_lbl = tk.Label(topbar, text="● ACTIVE v2.0",
                                     font=("Consolas", 10, "bold"),
                                     fg=GREEN_OK, bg="#030810")
         self.version_lbl.pack(side="right", padx=10)
 
         tk.Frame(self.root, bg=ACCENT_DIM, height=1).pack(fill="x")
 
-        # Orta İçerik
+        # Medium Content
         content = tk.Frame(self.root, bg=BG_DEEP)
         content.pack(fill="both", expand=True, padx=8, pady=(6, 0))
 
@@ -323,7 +319,7 @@ class JarvisInterface:
         left.pack_propagate(False)
         self._build_hud_panel(left)
 
-        # Sağ Sekmeler
+        # Right Tabs
         right = tk.Frame(content, bg=BG_PANEL,
                          highlightbackground=ACCENT_DIM, highlightthickness=1)
         right.pack(side="left", fill="both", expand=True, pady=2)
@@ -347,7 +343,7 @@ class JarvisInterface:
         self._build_mission_panel(tab_mission)
         self._build_memory_panel(tab_memory)
 
-        # Alt Giriş
+        # Bottom Entry
         tk.Frame(self.root, bg=ACCENT_DIM, height=1).pack(fill="x")
         bottom = tk.Frame(self.root, bg=BG_PANEL, height=62)
         bottom.pack(fill="x", side="bottom")
@@ -355,14 +351,14 @@ class JarvisInterface:
         self._build_bottom_bar(bottom)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # HUD PANELİ
+    # HUD PANEL
     # ─────────────────────────────────────────────────────────────────────────
     def _build_hud_panel(self, parent):
         self.canvas = tk.Canvas(parent, width=290, height=250,
                                 bg=BG_PANEL, highlightthickness=0)
         self.canvas.pack(pady=(14, 0))
 
-        self.status_lbl = tk.Label(parent, text="● BAŞLATILIYOR",
+        self.status_lbl = tk.Label(parent, text="● STARTING",
                                    font=("Consolas", 12, "bold"),
                                    fg=ACCENT_BLUE, bg=BG_PANEL)
         self.status_lbl.pack(pady=(4, 2))
@@ -385,7 +381,7 @@ class JarvisInterface:
 
         # [10/10] Vision Durum Kutusu
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=4)
-        tk.Label(parent, text="👁  EKRAN ANALİZİ", font=("Consolas", 8),
+        tk.Label(parent, text="👁 SCREEN ANALYSIS", font=("Consolas", 8),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
         self.vision_lbl = tk.Label(parent, text="Bekliyor...",
                                    font=("Consolas", 9), fg="#5588AA", bg=BG_PANEL,
@@ -394,7 +390,7 @@ class JarvisInterface:
 
         # Mod Toggle
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=4)
-        tk.Label(parent, text="GİRİŞ MODU", font=("Consolas", 8),
+        tk.Label(parent, text="ENTRY MODE", font=("Consolas", 8),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
 
         toggle_row = tk.Frame(parent, bg=BG_PANEL)
@@ -408,22 +404,22 @@ class JarvisInterface:
             command=self._toggle_mode
         )
         self.mode_switch.pack(side="left")
-        tk.Label(toggle_row, text="⌨ Yazılı", font=("Consolas", 11),
+        tk.Label(toggle_row, text="⌨ Written", font=("Consolas", 11),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(side="left", padx=(8, 0))
 
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=(8, 4))
-        tk.Label(parent, text="Oğuz Emir  |  J.A.R.V.I.S. ©",
+        tk.Label(parent, text="Oguz Emir |  J.A.R.V.I.S. ©",
                  font=("Consolas", 8), fg=TEXT_DIM, bg=BG_PANEL).pack(pady=4)
 
     # ─────────────────────────────────────────────────────────────────────────
     # MISSION CONTROL — Zengin Kartlar
     # ─────────────────────────────────────────────────────────────────────────
     def _build_mission_panel(self, parent):
-        # Canlı Vitals (CPU/RAM) Barı
+        # Live Vitals (CPU/RAM) Bar
         self.vitals_frame = tk.Frame(parent, bg="#050A15", highlightbackground=ACCENT_DIM, highlightthickness=1)
         self.vitals_frame.pack(fill="x", padx=5, pady=(5, 0))
         
-        tk.Label(self.vitals_frame, text="⚡ SİSTEM DURUMU:", font=("Consolas", 9, "bold"), fg=TEXT_DIM, bg="#050A15").pack(side="left", padx=10, pady=6)
+        tk.Label(self.vitals_frame, text="⚡ SYSTEM STATUS:", font=("Consolas", 9, "bold"), fg=TEXT_DIM, bg="#050A15").pack(side="left", padx=10, pady=6)
         self.cpu_lbl = tk.Label(self.vitals_frame, text="CPU: %0", font=("Consolas", 9, "bold"), fg=ACCENT_BLUE, bg="#050A15")
         self.cpu_lbl.pack(side="left", padx=10)
         self.ram_lbl = tk.Label(self.vitals_frame, text="RAM: %0", font=("Consolas", 9, "bold"), fg=ACCENT_BLUE, bg="#050A15")
@@ -431,7 +427,7 @@ class JarvisInterface:
 
         self.card_container = ctk.CTkScrollableFrame(
             parent, fg_color=BG_PANEL,
-            label_text="⬢  DİNAMİK VERİ KARTLARI",
+            label_text="⬢ DYNAMIC DATA CARDS",
             label_font=("Consolas", 11, "bold"),
             label_text_color=ACCENT_BLUE,
             label_fg_color="transparent",
@@ -440,10 +436,10 @@ class JarvisInterface:
         )
         self.card_container.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # Başlangıç kartı
+        # Start card
         self.display_card(
-            "Sistem Hazır",
-            "Mission Control aktif. Grafik kartları, ekran analizi ve proaktif eylemler burada görünecek.",
+            "System Ready",
+            "Mission Control is active. Graphics cards, display analysis, and proactive actions will appear here.",
             None
         )
         self._poll_vitals()
@@ -460,7 +456,7 @@ class JarvisInterface:
         self.root.after(2000, self._poll_vitals)
 
     def display_card(self, title: str, content: str, image_path: str = None):
-        """Metin + isteğe bağlı görsel içeren kart. Thread-safe."""
+        """Card with text + optional image. Thread-safe."""
         self.root.after(0, lambda: self._create_card_ui(title, content, image_path))
 
     def _create_card_ui(self, title: str, content: str, image_path: str = None):
@@ -470,7 +466,7 @@ class JarvisInterface:
                             corner_radius=10, border_width=1, border_color=ACCENT_DIM)
         card.pack(fill="x", padx=10, pady=8, side="top")
 
-        # Başlık satırı
+        # Header line
         header = tk.Frame(card, bg=BG_CARD)
         header.pack(fill="x", padx=15, pady=(12, 0))
 
@@ -484,12 +480,12 @@ class JarvisInterface:
 
         tk.Frame(card, bg=ACCENT_DIM, height=1).pack(fill="x", padx=15, pady=(5, 0))
 
-        # İçerik metni
+        # Content text
         tk.Label(card, text=content, font=("Consolas", 10),
                  fg=TEXT_MAIN, bg=BG_CARD, wraplength=480,
                  justify="left", anchor="w").pack(padx=15, pady=(8, 8), anchor="w")
 
-        # [10/10] Görsel yükleme
+        # [10/10] Uploading images
         if image_path and HAS_PIL and os.path.exists(image_path):
             try:
                 pil_img = PILImage.open(image_path)
@@ -503,7 +499,7 @@ class JarvisInterface:
                 img_lbl.image = ctk_img  # referans tut
                 img_lbl.pack(padx=15, pady=(0, 10))
             except Exception:
-                pass  # Görsel yüklenemezse sadece metin kalır
+                pass  # If the image cannot be loaded, only the text remains
 
         # Glow animasyonu
         def glow():
@@ -514,13 +510,13 @@ class JarvisInterface:
         glow()
 
     def display_chart_card(self, title: str, data: dict, chart_type: str = "bar"):
-        """[10/10] Gerçek matplotlib grafik kartı oluştur. Thread-safe."""
+        """[10/10] Create real matplotlib graphics card. Thread-safe."""
         self.root.after(0, lambda: self._create_chart_card_ui(title, data, chart_type))
 
     
 
     def display_map_card(self, title: str, lat: float, lon: float, zoom: int = 13):
-        """[MAP] Harita kartı oluştur. Thread-safe."""
+        """[MAP] Create map card. Thread-safe."""
         self.root.after(0, lambda: self._create_map_card_ui(title, lat, lon, zoom))
 
     def _create_map_card_ui(self, title: str, lat: float, lon: float, zoom: int):
@@ -530,7 +526,7 @@ class JarvisInterface:
                             corner_radius=10, border_width=1, border_color=ACCENT_DIM)
         card.pack(fill="x", padx=10, pady=8, side="top")
 
-        # Başlık
+        # Title
         header = tk.Frame(card, bg=BG_CARD)
         header.pack(fill="x", padx=15, pady=(12, 0))
 
@@ -549,7 +545,7 @@ class JarvisInterface:
                 font=("Consolas", 9), fg=TEXT_DIM, bg=BG_CARD).pack(
                 padx=15, pady=(6, 4), anchor="w")
 
-        # Harita görüntüsü
+        # Map view
         ctk_img = render_map_card(lat, lon, zoom)
         if ctk_img:
             img_lbl = ctk.CTkLabel(card, image=ctk_img, text="")
@@ -557,7 +553,7 @@ class JarvisInterface:
             img_lbl.pack(padx=15, pady=(0, 12))
         else:
             # staticmap yoksa veya internet yoksa bilgi ver
-            tk.Label(card, text="⚠ Harita yüklenemedi. (pip install staticmap)",
+            tk.Label(card, text="⚠ Failed to load map. (pip install staticmap)",
                     font=("Consolas", 9), fg="#FF6B35", bg=BG_CARD).pack(
                     padx=15, pady=(0, 12), anchor="w")
 
@@ -586,7 +582,7 @@ class JarvisInterface:
                             corner_radius=10, border_width=1, border_color=ACCENT_DIM)
         card.pack(fill="x", padx=10, pady=8, side="top")
 
-        # Başlık
+        # Title
         header = tk.Frame(card, bg=BG_CARD)
         header.pack(fill="x", padx=15, pady=(12, 0))
 
@@ -603,7 +599,7 @@ class JarvisInterface:
 
         tk.Frame(card, bg=ACCENT_DIM, height=1).pack(fill="x", padx=15, pady=(5, 0))
 
-        # Grafik oluştur (Agg backend — thread-safe)
+        # Create graph (Agg backend — thread-safe)
         ctk_img = render_chart(chart_type, data, title)
 
         if ctk_img and HAS_PIL:
@@ -611,7 +607,7 @@ class JarvisInterface:
             img_lbl.image = ctk_img
             img_lbl.pack(padx=15, pady=(8, 12))
         else:
-            # Fallback: Pillow yoksa düz metin listesi
+            # Fallback: Plain text list if no Pillow
             labels = data.get("labels", [])
             values = data.get("values", [])
             fallback = "\n".join(f"  {l}: {v}" for l, v in zip(labels, values))
@@ -628,19 +624,19 @@ class JarvisInterface:
         glow()
 
     # ─────────────────────────────────────────────────────────────────────────
-    # HAFIZA SEKMESİ — [10/10]
+    # MEMORY TAB — [10/10]
     # ─────────────────────────────────────────────────────────────────────────
     def _build_memory_panel(self, parent):
-        """Canlı hafıza listesi + istatistik çubuğu + yenile butonu."""
-        # Üst araç çubuğu
+        """Live memory list + statistics bar + refresh button."""
+        # Top toolbar
         toolbar = tk.Frame(parent, bg=BG_PANEL)
         toolbar.pack(fill="x", padx=12, pady=(10, 4))
 
-        tk.Label(toolbar, text="🧠  HAFIZA YÖNETİMİ",
+        tk.Label(toolbar, text="🧠 MEMORY MANAGEMENT",
                  font=("Consolas", 10, "bold"),
                  fg=ACCENT_BLUE, bg=BG_PANEL).pack(side="left")
 
-        self.mem_count_lbl = tk.Label(toolbar, text="0 kayıt",
+        self.mem_count_lbl = tk.Label(toolbar, text="0 records",
                                       font=("Consolas", 9), fg=TEXT_DIM, bg=BG_PANEL)
         self.mem_count_lbl.pack(side="left", padx=14)
 
@@ -652,26 +648,26 @@ class JarvisInterface:
             command=self._refresh_memory_panel
         ).pack(side="right")
 
-        # İstatistik kutusu
+        # Statistics box
         self.mem_stats_frame = tk.Frame(parent, bg=BG_CARD,
                                         highlightbackground=ACCENT_DIM, highlightthickness=1)
         self.mem_stats_frame.pack(fill="x", padx=12, pady=(0, 6))
 
         self.mem_stats_lbl = tk.Label(
             self.mem_stats_frame,
-            text="İstatistikler yükleniyor...",
+            text="Statistics loading...",
             font=("Consolas", 9), fg=TEXT_DIM, bg=BG_CARD,
             anchor="w", justify="left", padx=12, pady=6
         )
         self.mem_stats_lbl.pack(fill="x")
 
-        # İstatistik grafiği (pasta)
+        # Statistics chart (pie)
         self.mem_chart_frame = tk.Frame(parent, bg=BG_CARD, highlightbackground=ACCENT_DIM, highlightthickness=1)
         self.mem_chart_frame.pack(pady=(4, 8), padx=12)
         self.mem_chart_lbl = ctk.CTkLabel(self.mem_chart_frame, text="", image=None)
         self.mem_chart_lbl.pack(padx=4, pady=4)
 
-        # Hafıza listesi
+        # Memory list
         self.mem_list_frame = ctk.CTkScrollableFrame(
             parent, fg_color=BG_PANEL,
             label_text="", scrollbar_button_color=ACCENT_DIM
@@ -679,15 +675,15 @@ class JarvisInterface:
         self.mem_list_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
     def _refresh_memory_panel(self):
-        """Hafıza listesini ve istatistikleri yeniler."""
+        """Refreshes the memory list and statistics."""
         if not (self.engine and hasattr(self.engine, 'memory') and self.engine.memory):
-            self.mem_stats_lbl.configure(text="Motor henüz bağlı değil.")
+            self.mem_stats_lbl.configure(text="The motor is not connected yet.")
             return
 
         threading.Thread(target=self._load_memory_data, daemon=True).start()
 
     def _load_memory_data(self):
-        """Arka planda hafıza verilerini çeker, GUI thread'ine gönderir."""
+        """It fetches memory data in the background and sends it to the GUI thread."""
         try:
             memories = self.engine.memory.get_display_memories(60)
             stats    = self.engine.memory.get_stats()
@@ -695,44 +691,44 @@ class JarvisInterface:
         except Exception as e:
             err_msg = str(e)
             self.root.after(0, lambda: self.mem_stats_lbl.configure(
-                text=f"Hata: {err_msg}"
+                text=f"Error: {err_msg}"
             ))
 
     def _render_memory_panel(self, memories: list, stats: dict):
-        # Sayaç
+        # Counter
         total = stats.get("total", 0)
-        self.mem_count_lbl.configure(text=f"{total} kayıt")
+        self.mem_count_lbl.configure(text=f"{total} record")
 
-        # İstatistik metni
+        # Statistics text
         by_type = stats.get("by_type", {})
         avg_imp = stats.get("avg_importance", 0.0)
         type_labels = {"episodic": "Epizodik", "semantic": "Semantik",
-                       "task": "Görev", "pattern_rule": "Kural"}
+                       "task": "Duty", "pattern_rule": "Kural"}
         stats_parts = [f"{type_labels.get(k, k)}: {v}" for k, v in by_type.items()]
-        stats_text = "  |  ".join(stats_parts) + f"  |  Ort. Önem: {avg_imp:.2f}"
-        self.mem_stats_lbl.configure(text=stats_text if stats_parts else "Henüz kayıt yok.")
+        stats_text = "  |  ".join(stats_parts) + f"|  Avg. Severity: {avg_imp:.2f}"
+        self.mem_stats_lbl.configure(text=stats_text if stats_parts else "No registration yet.")
 
-        # Pasta grafiği (eğer veri varsa)
+        # Pie chart (if data available)
         if by_type and HAS_PIL:
             chart_data = {
                 "labels": [type_labels.get(k, k) for k in by_type],
                 "values": list(by_type.values())
             }
-            ctk_img = render_pie_chart(chart_data, "Hafıza Dağılımı")
+            ctk_img = render_pie_chart(chart_data, "Memory Distribution")
             if ctk_img:
                 self.mem_chart_lbl.configure(image=ctk_img)
                 self.mem_chart_lbl.image = ctk_img
 
-        # Önceki satırları temizle
+        # Clear previous lines
         for widget in self.mem_list_frame.winfo_children():
             widget.destroy()
 
         if not memories:
-            tk.Label(self.mem_list_frame, text="Kayıtlı hafıza yok.",
+            tk.Label(self.mem_list_frame, text="There is no saved memory.",
                      font=("Consolas", 10), fg=TEXT_DIM, bg=BG_PANEL).pack(pady=20)
             return
 
-        # Her hafıza için satır
+        # Rows for each memory
         type_colors = {
             "episodic":    "#00C8FF",
             "semantic":    "#00E87A",
@@ -748,16 +744,16 @@ class JarvisInterface:
                            highlightbackground=ACCENT_DIM, highlightthickness=1)
             row.pack(fill="x", padx=4, pady=3)
 
-            # Sol renk şeridi
+            # Left color stripe
             mtype = mem.get("memory_type", "semantic")
             stripe_color = type_colors.get(mtype, ACCENT_BLUE)
             tk.Frame(row, bg=stripe_color, width=3).pack(side="left", fill="y")
 
-            # İçerik
+            # Contents
             inner = tk.Frame(row, bg=BG_CARD)
             inner.pack(side="left", fill="both", expand=True, padx=(8, 8), pady=6)
 
-            # Üst satır: tür ikonu + yaş + önem
+            # Top row: type icon + age + importance
             meta_row = tk.Frame(inner, bg=BG_CARD)
             meta_row.pack(fill="x")
 
@@ -784,10 +780,10 @@ class JarvisInterface:
                      wraplength=520, justify="left", anchor="w").pack(anchor="w", pady=(2, 0))
 
     # ─────────────────────────────────────────────────────────────────────────
-    # TOAST BİLDİRİMİ — [10/10]  "Öğrendim ✓"
+    # TOAST NOTIFICATION — [10/10] “I Learned ✓”
     # ─────────────────────────────────────────────────────────────────────────
     def _poll_toast(self):
-        """Ana döngüye bağlı toast kuyruğu dinleyici."""
+        """Toast queue listener connected to the main loop."""
         if not self._toast_queue.empty() and not self._toast_visible:
             try:
                 msg = self._toast_queue.get_nowait()
@@ -797,18 +793,16 @@ class JarvisInterface:
         self.root.after(200, self._poll_toast)
 
     def show_memory_toast(self, text: str, memory_type: str, importance: float):
-        """
-        [10/10] io_bridge üzerinden çağrılan hafıza bildirimi.
-        Güvenli: GUI thread dışından çağrılabilir.
-        """
+        """[10/10] Memory declaration called via io_bridge.
+        Safe: Can be called from outside the GUI thread."""
         short = text[:45] + ("..." if len(text) > 45 else "")
         type_icons = {"episodic": "💬", "semantic": "📚", "task": "✅", "pattern_rule": "⚙"}
         icon = type_icons.get(memory_type, "🧠")
-        msg = f"{icon}  Öğrendim ✓  — {short}"
+        msg = f"{icon} I learned ✓ — {short}"
         self._toast_queue.put(msg)
 
     def _show_toast(self, message: str):
-        """Ekranın sağ alt köşesine 3 saniyelik toast bildirim penceresi."""
+        """3-second toast notification window in the lower right corner of the screen."""
         self._toast_visible = True
 
         toast = tk.Toplevel(self.root)
@@ -821,7 +815,7 @@ class JarvisInterface:
         except Exception as e:
             logger.debug(f"GUI Error (toast alpha init): {e}")
 
-        # İçerik
+        # Contents
         frm = tk.Frame(toast, bg="#0D1E35",
                        highlightbackground=GREEN_OK, highlightthickness=1)
         frm.pack(padx=2, pady=2)
@@ -830,7 +824,7 @@ class JarvisInterface:
                  font=("Consolas", 10), fg=GREEN_OK, bg="#0D1E35",
                  padx=16, pady=10).pack()
 
-        # Konumlandır: sağ alt köşe
+        # Position: bottom right corner
         toast.update_idletasks()
         tw = toast.winfo_width()
         th = toast.winfo_height()
@@ -863,10 +857,10 @@ class JarvisInterface:
         self.root.after(3000, fade_out)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # VISION STATUS GÜNCELLEMESI — [10/10]
+    # VISION STATUS UPDATE — [10/10]
     # ─────────────────────────────────────────────────────────────────────────
     def update_vision_status(self, summary: str, screenshot_path: str = None):
-        """Watcher tarafından çağrılır — HUD'daki vision etiketini günceller."""
+        """Called by Watcher — Updates the vision tag in the HUD."""
         short = summary[:80] + ("..." if len(summary) > 80 else "")
         self._last_vision_summary = summary
         self.root.after(0, lambda: self.vision_lbl.configure(
@@ -874,12 +868,12 @@ class JarvisInterface:
         ))
 
     # ─────────────────────────────────────────────────────────────────────────
-    # LOG PANELİ
+    # LOG PANEL
     # ─────────────────────────────────────────────────────────────────────────
     def _build_log_panel(self, parent):
         header = tk.Frame(parent, bg=BG_PANEL)
         header.pack(fill="x", padx=12, pady=(10, 4))
-        tk.Label(header, text="[ SİSTEM LOGLARI ]", font=("Consolas", 9),
+        tk.Label(header, text="[ SYSTEM LOGS ]", font=("Consolas", 9),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(side="left")
         tk.Button(header, text="Temizle", font=("Consolas", 8),
                   fg=TEXT_DIM, bg=BG_CARD, bd=0, relief="flat", cursor="hand2",
@@ -898,7 +892,7 @@ class JarvisInterface:
         self.log_box.tag_configure("jarvis", foreground=LOG_JARVIS)
         self.log_box.tag_configure("user",   foreground=LOG_USER)
         self.log_box.tag_configure("error",  foreground=LOG_ERROR)
-        self.log_box.tag_configure("error_bg", foreground="#FF8888", background="#3A1010") # Vurgulu Hata
+        self.log_box.tag_configure("error_bg", foreground="#FF8888", background="#3A1010") # Hover Error
         self.log_box.tag_configure("brain_bg", foreground="#77AABB", background="#0A1830") # Vurgulu Beyin Logu
         self.log_box.tag_configure("system", foreground=LOG_SYSTEM)
         self.log_box.tag_configure("ok",     foreground=LOG_OK)
@@ -912,20 +906,20 @@ class JarvisInterface:
         inner.pack(fill="both", expand=True, padx=14, pady=10)
 
         self.voice_lbl = tk.Label(inner,
-                                  text="🎙  Sesli mod aktif — Konuşarak komut verebilirsiniz",
+                                  text="🎙 Voice mode active — You can give commands by speaking",
                                   font=("Consolas", 11), fg=TEXT_DIM, bg=BG_PANEL)
         self.voice_lbl.pack(side="left", expand=True)
 
         self.text_entry = ctk.CTkEntry(
             inner,
-            placeholder_text="⌨  Komutunuzu yazın ve Enter'a basın...",
+            placeholder_text="⌨ Type your command and press Enter...",
             font=("Consolas", 12), fg_color=BG_CARD,
             border_color=ACCENT_DIM, text_color=TEXT_MAIN, height=40
         )
         self.text_entry.bind("<Return>", self._send_text)
 
         self.send_btn = ctk.CTkButton(
-            inner, text="GÖNDER →",
+            inner, text="SEND →",
             font=("Consolas", 12, "bold"),
             fg_color=ACCENT_DIM, hover_color=ACCENT_BLUE,
             text_color=TEXT_MAIN, height=40, width=120,
@@ -933,7 +927,7 @@ class JarvisInterface:
         )
 
     # ─────────────────────────────────────────────────────────────────────────
-    # ANİMASYON
+    # ANIMATION
     # ─────────────────────────────────────────────────────────────────────────
     def _animate(self):
         if not self._running:
@@ -994,7 +988,7 @@ class JarvisInterface:
             canvas.create_oval(ax - 3, ay - 3, ax + 3, ay + 3,
                               fill=led_color, outline="")
 
-        speed = 3.0 if "DİNLİYOR" in self._status else 1.2
+        speed = 3.0 if "LISTENING" in self._status else 1.2
         self._anim_angle += speed
         self._anim_pulse += 3 * self._anim_dir
         if self._anim_pulse > 90 or self._anim_pulse < 0:
@@ -1013,16 +1007,16 @@ class JarvisInterface:
 
     def _get_status_info(self):
         s = self._status.upper()
-        if "DİNLİYOR" in s:   return "DİNLİYOR",     GREEN_OK
-        if any(x in s for x in ["DÜŞÜNÜYOR", "İŞLENİYOR", "ÇALIŞIYOR"]):
-            return "İŞLENİYOR", ORANGE
-        if any(x in s for x in ["KONUŞUYOR", "DİKTE"]):   return "ÇALIŞIYOR",   ACCENT_BLUE
-        if "BAŞLATILIYOR" in s: return "BAŞLATILIYOR", TEXT_DIM
-        if any(x in s for x in ["YAZILI", "KOĞUL"]):      return "KOMUTU BEKLE", ORANGE
+        if "LISTENING" in s:   return "LISTENING",     GREEN_OK
+        if any(x in s for x in ["THINKING", "PROCESSING", "WORKING"]):
+            return "PROCESSING", ORANGE
+        if any(x in s for x in ["SPEAKING", "DICTATION"]):   return "WORKING",   ACCENT_BLUE
+        if "STARTING" in s: return "STARTING", TEXT_DIM
+        if any(x in s for x in ["YAZILI", "SON"]):      return "KOMUTU BEKLE", ORANGE
         return "HAZIR", ACCENT_DIM
 
     # ─────────────────────────────────────────────────────────────────────────
-    # MOD GEÇİŞİ
+    # MODE SWITCH
     # ─────────────────────────────────────────────────────────────────────────
     def _toggle_mode(self):
         self.text_mode = bool(self.mode_switch.get())
@@ -1034,25 +1028,25 @@ class JarvisInterface:
             self.text_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
             self.send_btn.pack(side="right")
             self._update_status("⌨ YAZILI MOD")
-            self._append_log("[GUI] Yazılı mod aktif.", "system")
+            self._append_log("[GUI] Written mode is active.", "system")
         else:
             self.text_entry.pack_forget()
             self.send_btn.pack_forget()
             self.voice_lbl.pack(side="left", expand=True)
-            self._update_status("🎙 SESLİ MOD")
+            self._update_status("🎙 SOUND MODE")
             self._append_log("[GUI] Sesli mod aktif.", "system")
             if self.engine:
                 self.engine.reset_audio()
 
     # ─────────────────────────────────────────────────────────────────────────
-    # METİN GİRİŞİ
+    # TEXT ENTRY
     # ─────────────────────────────────────────────────────────────────────────
     def _send_text(self, event=None):
         text = self.text_entry.get().strip()
         if not text:
             return
         self.text_entry.delete(0, "end")
-        self._append_log(f"Sen (Yazılı): {text}", "user")
+        self._append_log(f"You (Written): {text}", "user")
         self.root.after(0, lambda: self.last_cmd.configure(
             text=text[:55] + ("..." if len(text) > 55 else "")
         ))
@@ -1077,13 +1071,13 @@ class JarvisInterface:
                         if line_stripped:
                             if any(x in line_stripped for x in ["Loading weights", "BertModel LOAD REPORT", "embeddings.position_ids", "UNEXPECTED", "HF_TOKEN", "unauthenticated requests", "huggingface.co", "Key                     | Status", "------------------------+", "Notes:", "can be ignored when loading"]):
                                 continue
-                            self.callback(f"[KRİTİK HATA] {line_stripped}")
+                            self.callback(f"[CRITICAL ERROR] {line_stripped}")
                     self._buf = lines[-1]
                 return len(text)
             def flush(self):
                 if self._buf.strip():
                     if not any(x in self._buf for x in ["Loading weights", "BertModel", "UNEXPECTED", "HF_TOKEN", "Key                     | Status", "------------------------+", "Notes:"]):
-                        self.callback(f"[KRİTİK HATA] {self._buf.strip()}")
+                        self.callback(f"[CRITICAL ERROR] {self._buf.strip()}")
                     self._buf = ""
         sys.stderr = StderrStream(self._append_log_auto)
 
@@ -1093,28 +1087,28 @@ class JarvisInterface:
             return
         tl = t.lower()
 
-        if "sen (sesli):" in tl or "sen (yazılı):" in tl:
+        if "sen (sesli):" in tl or "you (written):" in tl:
             tag = "user"
             content = t.split(":", 1)[-1].strip()
             self.root.after(0, lambda c=content: self.last_cmd.configure(
                 text=c[:55] + ("..." if len(c) > 55 else "")
             ))
-        elif "[j.a.r.v.i.s.]:" in tl and "hata" not in tl and "başarisiz" not in tl:
+        elif "[j.a.r.v.i.s.]:" in tl and "hata" not in tl and "unsuccessful" not in tl:
             tag = "jarvis"
             if "]: " in t:
                 resp = t.split("]: ", 1)[-1]
                 self.root.after(0, lambda r=resp: self.last_resp.configure(
                     text=r[:72] + ("..." if len(r) > 72 else "")
                 ))
-        elif "başarili" in tl:
+        elif "successful" in tl:
             tag = "ok"
-        elif "başarisiz" in tl or "hata" in tl or "error" in tl or "kritik" in tl:
-            tag = "error_bg" if "[kritik hata]" in tl else "error"
+        elif "unsuccessful" in tl or "hata" in tl or "error" in tl or "kritik" in tl:
+            tag = "error_bg" if "[critical error]" in tl else "error"
         elif "[beyi̇n logu]" in tl or "[beyin logu]" in tl:
             tag = "brain_bg"
         elif "dinliyor" in tl:
             tag = "system"
-            self.root.after(0, lambda: self._update_status("DİNLİYOR"))
+            self.root.after(0, lambda: self._update_status("LISTENING"))
         else:
             tag = "system"
 
@@ -1137,7 +1131,7 @@ class JarvisInterface:
         self.log_box.configure(state="disabled")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # ENGINE BAŞLATMA
+    # ENGINE START
     # ─────────────────────────────────────────────────────────────────────────
     def _start_jarvis(self):
         icon_path = os.path.join(
@@ -1184,7 +1178,7 @@ class JarvisInterface:
                     except Exception:
                         pass
 
-                    # [10/10] Tüm callback'leri bağla
+                    # [10/10] Bind all callbacks
                     self.engine.io_bridge.set_card_callback(self.display_card)
                     self.engine.io_bridge.set_chart_card_callback(self.display_chart_card)
                     self.engine.io_bridge.set_vision_status_callback(self.update_vision_status)
@@ -1192,7 +1186,7 @@ class JarvisInterface:
                     self.engine.io_bridge.set_memory_refresh_callback(self._refresh_memory_panel)
                     self.engine.io_bridge.set_map_card_callback(self.display_map_card)
 
-                    # [10/10] Hafıza kayıt callback'ini bağla
+                    # [10/10] Bind memory register callback
                     if hasattr(self.engine, 'memory') and self.engine.memory:
                         self.engine.memory.set_on_save_callback(
                             self.engine.io_bridge.notify_memory_saved
@@ -1200,22 +1194,22 @@ class JarvisInterface:
 
                     await self.engine.initialize()
 
-                    # initialize() sonrası memory varsa callback'i tekrar bağla
+                    # Rebind the callback if there is memory after initialize()
                     if hasattr(self.engine, 'memory') and self.engine.memory:
                         self.engine.memory.set_on_save_callback(
                             self.engine.io_bridge.notify_memory_saved
                         )
 
-                    self._append_log("[GUI] J.A.R.V.I.S. v2.0 motoru başlatıldı.", "ok")
-                    self._update_status("DİNLİYOR")
+                    self._append_log("[GUI] J.A.R.V.I.S. The v2.0 engine has been started.", "ok")
+                    self._update_status("LISTENING")
 
-                    # Hafıza sekmesini başlatılınca otomatik yükle
+                    # Automatically load the memory tab upon startup
                     self.root.after(2000, self._refresh_memory_panel)
 
                     await self.engine.start()
 
                 except Exception as e:
-                    self._append_log(f"[KRİTİK HATA] Motor hatası: {e}", "error")
+                    self._append_log(f"[CRITICAL ERROR] Engine error: {e}", "error")
 
             import asyncio
             asyncio.run(_async_launch())
@@ -1238,7 +1232,7 @@ class JarvisInterface:
 
     def _show_autostart_dialog(self):
         dialog = ctk.CTkToplevel(self.root)
-        dialog.title("J.A.R.V.I.S. — Başlangıç Ayarı")
+        dialog.title("J.A.R.V.I.S. — Initial Setting")
         dialog.geometry("460x210")
         dialog.configure(fg_color=BG_PANEL)
         dialog.grab_set()
@@ -1247,10 +1241,10 @@ class JarvisInterface:
         x = self.root.winfo_x() + (self.root.winfo_width() - 460) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - 210) // 2
         dialog.geometry(f"+{x}+{y}")
-        tk.Label(dialog, text="⬡  Otomatik Başlatma",
+        tk.Label(dialog, text="⬡ Auto Start",
                  font=("Consolas", 14, "bold"), fg=ACCENT_BLUE, bg=BG_PANEL).pack(pady=(18, 6))
         tk.Label(dialog,
-                 text="Efendim, her Windows açılışında size eşlik etmemi ister misiniz?",
+                 text="Sir, would you like me to accompany you every time Windows starts?",
                  font=("Consolas", 11), fg=TEXT_MAIN, bg=BG_PANEL, wraplength=400).pack(pady=8)
         btn_row = tk.Frame(dialog, bg=BG_PANEL)
         btn_row.pack(pady=14)
@@ -1269,7 +1263,7 @@ class JarvisInterface:
                       font=("Consolas", 11, "bold"), fg_color=ACCENT_DIM,
                       hover_color=ACCENT_BLUE, text_color=TEXT_MAIN,
                       width=200, height=36, command=on_yes).pack(side="left", padx=8)
-        ctk.CTkButton(btn_row, text="✗  Hayır, gerek yok",
+        ctk.CTkButton(btn_row, text="✗ No, no need",
                       font=("Consolas", 11), fg_color="#1A0A0A",
                       hover_color="#3A1010", text_color="#AA6655",
                       width=160, height=36, command=on_no).pack(side="left", padx=8)
@@ -1306,12 +1300,12 @@ $s.Description     = "J.A.R.V.I.S. AI Assistant"
             config_file = os.path.join(project_dir, ".jarvis_autostart")
             with open(config_file, "w") as f:
                 f.write("enabled")
-            self._append_log("[AUTOSTART] Kuruldu! Windows açılışında aktif olacak.", "ok")
+            self._append_log("[AUTOSTART] Installed! It will be active at Windows startup.", "ok")
         except Exception as e:
-            self._append_log(f"[AUTOSTART HATA] {e}", "error")
+            self._append_log(f"[AUTOSTART ERROR] {e}", "error")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # DURUM GÜNCELLEMESİ
+    # STATUS UPDATE
     # ─────────────────────────────────────────────────────────────────────────
     def _update_status(self, status: str):
         self._status = status.upper()
@@ -1323,7 +1317,7 @@ $s.Description     = "J.A.R.V.I.S. AI Assistant"
 
     def bring_to_front(self):
         try:
-            target_title = "J.A.R.V.I.S. — Sistem Kontrol Merkezi"
+            target_title = "J.A.R.V.I.S. — System Control Center"
             hwnd = win32gui.FindWindow(None, target_title)
             if hwnd:
                 pyautogui.press('alt')
@@ -1335,7 +1329,7 @@ $s.Description     = "J.A.R.V.I.S. AI Assistant"
             self.root.after(150, lambda: self.root.attributes("-topmost", False))
             self.root.focus_force()
         except Exception as e:
-            print(f"[FOCUS_SHIELD] Pencere odağı engellendi: {e}")
+            print(f"[FOCUS_SHIELD] Window focus blocked: {e}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # KAPATMA
@@ -1353,7 +1347,7 @@ $s.Description     = "J.A.R.V.I.S. AI Assistant"
         self.root.mainloop()
 
 
-# ── Başlatıcı ─────────────────────────────────────────────────────────────────
+# ── Launcher ──────────────────────────────── ─────────────────────────────────
 def launch_gui():
     app = JarvisInterface()
     app.run()
