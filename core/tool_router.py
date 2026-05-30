@@ -251,7 +251,7 @@ class AutonomousToolRouter:
 
         # ── 7. CHAT / KNOWLEDGE / MATHEMATICS → LLM ──
         chat_patterns = [
-            r'\b(hello|hi|what's up|how are you|thank you|thank you|excellent)\b',
+            r"\b(hello|hi|what's up|how are you|thank you|thank you|excellent)\b",
             r'\b(sen kimsin|neler yapabilirsin|kendinden bahset)\b',
             r'\b(add|subtract|multiply|divide|calculate|what is it|prime|mathematics)\b',
         ]
@@ -393,7 +393,8 @@ class AutonomousToolRouter:
         return has_file_indicator
 
     def _is_file_read(self, text: str) -> bool:
-        """FILE_READ: "read file", "read test.txt", "read file", "show contents""""
+        """FILE_READ: "read file", "read test.txt", "read file", "show contents"
+    """
         read_keywords = ["oku", "show content", "what does it say", "what is the content"]
         has_read = any(kw in text for kw in read_keywords)
         if not has_read:
@@ -437,7 +438,8 @@ class AutonomousToolRouter:
         return has_file
 
     def _is_folder_open(self, text: str) -> bool:
-        """FOLDER_OPEN: "open folder", "downloads folder", "documents directory""""
+        """FOLDER_OPEN: "open folder", "downloads folder", "documents directory"
+    """
         folder_words = ["folder", "dizin"]
         open_words = ["hungry", "show", "listele"]
         has_folder = any(w in text for w in folder_words)

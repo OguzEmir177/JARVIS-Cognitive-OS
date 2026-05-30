@@ -309,7 +309,7 @@ class NativeOps:
             # Neden safe='' zorunlu?
             # urllib.parse.quote leaves the default safe='/'.
             # If there is '/' in the WhatsApp message, the URL parser will convert it to path
-            It may be mistaken for a # separator. With safe='' this risk is reset.
+            # # It may be mistaken for a # separator. With safe='' this risk is reset.
             encoded_msg = urllib.parse.quote(message, safe="")
 
             # ── STEP 3: Create & Trigger URL (cmd.exe BYPASS) ───────────────

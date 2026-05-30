@@ -637,9 +637,11 @@ class FileSummarizeTool(BaseTool):
 # ──────────────────────────────────────────────────────────
 
 def _extract_filename_from_command(raw: str) -> str:
-    """"create test.txt on desktop" → "desktop/test.txt"
+    """
+    "create test.txt on desktop" → "desktop/test.txt"
     "create test.txt" → "test.txt"
-    "create notes.txt to desktop" → "desktop/notes.txt""""
+    "create notes.txt to desktop" → "desktop/notes.txt"
+    """
     import re
 
     # If the path is already clean, do not touch it
@@ -666,8 +668,10 @@ def _extract_filename_from_command(raw: str) -> str:
 
 
 def _clean_folder_keyword(raw: str) -> str:
-    """"downloads folder" → "downloads"
-    "documents folder" → "documents""""
+    """
+    "downloads folder" → "downloads"
+    "documents folder" → "documents"
+    """
     import re
     cleaned = re.sub(r'\s+(?:folder|folder|directory|directory|to folder|in folder)\s*$', '', raw, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r'\s+(?:open|show|list)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
