@@ -186,7 +186,7 @@ class IOBridge:
                 pass
 
         if self.text_mode and self.text_input_queue is not None:
-            self.update_gui("YAZILI MOD")
+            self.update_gui("TEXT MODE")
             _TEXT_INPUT_TIMEOUT_S = 300
 
             def _blocking_get() -> str:

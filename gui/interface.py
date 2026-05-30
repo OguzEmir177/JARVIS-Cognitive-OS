@@ -65,6 +65,108 @@ LOG_ERROR   = "#FF6B35"
 LOG_SYSTEM  = "#446680"
 LOG_OK      = "#00E87A"
 
+# ── Language Strings ─────────────────────────────────────────────────────────
+LANG = {
+    "en": {
+        "title":              "J.A.R.V.I.S. — System Control Center",
+        "subtitle":           "JUST A RATHER VERY INTELLIGENT SYSTEM",
+        "active":             "● ACTIVE v2.0",
+        "last_command":       "LAST COMMAND",
+        "last_response":      "LAST RESPONSE",
+        "screen_analysis":    "👁 SCREEN ANALYSIS",
+        "waiting":            "Waiting...",
+        "entry_mode":         "ENTRY MODE",
+        "voice":              "🎙 Voice",
+        "written":            "⌨ Written",
+        "copyright":          "Oguz Emir |  J.A.R.V.I.S. ©",
+        "logs_tab":           "LOGS",
+        "mission_tab":        "MISSION CONTROL",
+        "memory_tab":         "MEMORY",
+        "system_logs":        "[ SYSTEM LOGS ]",
+        "clear":              "Clear",
+        "voice_mode_label":   "🎙 Voice mode active — You can give commands by speaking",
+        "text_placeholder":   "⌨ Type your command and press Enter...",
+        "send_btn":           "SEND →",
+        "system_status":      "⚡ SYSTEM STATUS:",
+        "dynamic_cards":      "⬢ DYNAMIC DATA CARDS",
+        "system_ready":       "System Ready",
+        "system_ready_desc":  "Mission Control is active. Graphics cards, display analysis, and proactive actions will appear here.",
+        "memory_mgmt":        "🧠 MEMORY MANAGEMENT",
+        "records":            "records",
+        "refresh":            "↻ Refresh",
+        "stats_loading":      "Statistics loading...",
+        "engine_not_conn":    "The motor is not connected yet.",
+        "no_memory":          "There is no saved memory.",
+        "text_mode_active":   "[GUI] Text mode is active.",
+        "voice_mode_active":  "[GUI] Voice mode is active.",
+        "engine_started":     "[GUI] J.A.R.V.I.S. The v2.0 engine has been started.",
+        "autostart_title":    "⬡ Auto Start",
+        "autostart_question": "Sir, would you like me to accompany you every time Windows starts?",
+        "autostart_yes":      "✓  Yes, always start with Windows",
+        "autostart_no":       "✗ No, no need",
+        "you_written":        "You (Written):",
+        "starting":           "STARTING",
+        "lang_btn":           "TR",
+        "lang_note":          "[GUI] Language: English",
+        "no_analysis":        "No analysis has been made yet.",
+        "mem_dist":           "Memory Distribution",
+        "avg_importance":     "Avg. Importance",
+        "type_episodic":      "Episodic",
+        "type_semantic":      "Semantic",
+        "type_task":          "Task",
+        "type_rule":          "Rule",
+    },
+    "tr": {
+        "title":              "J.A.R.V.I.S. — Sistem Kontrol Merkezi",
+        "subtitle":           "OLDUKÇA ZEKICE BİR SİSTEM",
+        "active":             "● AKTİF v2.0",
+        "last_command":       "SON KOMUT",
+        "last_response":      "SON YANIT",
+        "screen_analysis":    "👁 EKRAN ANALİZİ",
+        "waiting":            "Bekleniyor...",
+        "entry_mode":         "GİRİŞ MODU",
+        "voice":              "🎙 Ses",
+        "written":            "⌨ Yazı",
+        "copyright":          "Oguz Emir |  J.A.R.V.I.S. ©",
+        "logs_tab":           "LOGLAR",
+        "mission_tab":        "GÖREV MERKEZİ",
+        "memory_tab":         "BELLEK",
+        "system_logs":        "[ SİSTEM LOGLARI ]",
+        "clear":              "Temizle",
+        "voice_mode_label":   "🎙 Ses modu aktif — Konuşarak komut verebilirsiniz",
+        "text_placeholder":   "⌨ Komutunuzu yazın ve Enter'a basın...",
+        "send_btn":           "GÖNDER →",
+        "system_status":      "⚡ SİSTEM DURUMU:",
+        "dynamic_cards":      "⬢ DİNAMİK VERİ KARTLARI",
+        "system_ready":       "Sistem Hazır",
+        "system_ready_desc":  "Görev Merkezi aktif. Veri kartları, ekran analizi ve proaktif aksiyonlar burada görünecek.",
+        "memory_mgmt":        "🧠 BELLEK YÖNETİMİ",
+        "records":            "kayıt",
+        "refresh":            "↻ Yenile",
+        "stats_loading":      "İstatistikler yükleniyor...",
+        "engine_not_conn":    "Motor henüz bağlı değil.",
+        "no_memory":          "Kayıtlı bellek yok.",
+        "text_mode_active":   "[GUI] Yazı modu aktif.",
+        "voice_mode_active":  "[GUI] Ses modu aktif.",
+        "engine_started":     "[GUI] J.A.R.V.I.S. v2.0 motoru başlatıldı.",
+        "autostart_title":    "⬡ Otomatik Başlat",
+        "autostart_question": "Efendim, Windows her açıldığında yanınızda olmamı ister misiniz?",
+        "autostart_yes":      "✓  Evet, Windows ile başlat",
+        "autostart_no":       "✗ Hayır, gerek yok",
+        "you_written":        "Sen (Yazılı):",
+        "starting":           "BAŞLANIYOR",
+        "lang_btn":           "EN",
+        "lang_note":          "[GUI] Dil: Türkçe",
+        "no_analysis":        "Henüz analiz yapılmadı.",
+        "mem_dist":           "Bellek Dağılımı",
+        "avg_importance":     "Ort. Önem",
+        "type_episodic":      "Epizodik",
+        "type_semantic":      "Semantik",
+        "type_task":          "Görev",
+        "type_rule":          "Kural",
+    }
+}
+
 # Plot colors (hex for matplotlib)
 CHART_COLORS = ["#00C8FF", "#FF6B35", "#00E87A", "#9B59B6", "#F1C40F",
                 "#E74C3C", "#3498DB", "#2ECC71", "#E67E22", "#1ABC9C"]
@@ -272,6 +374,9 @@ class JarvisInterface:
         self._anim_glow  = 0.0
         self.engine      = None
 
+        # [LANG] Language: "en" or "tr"
+        self._lang = "en"
+
         # [10/10] Vision final summary
         self._last_vision_summary = "No analysis has been made yet."
 
@@ -286,6 +391,68 @@ class JarvisInterface:
         self._poll_toast()
 
     # ─────────────────────────────────────────────────────────────────────────
+    # LANGUAGE HELPERS
+    # ─────────────────────────────────────────────────────────────────────────
+    def _t(self, key: str) -> str:
+        """Returns the UI string for the current language."""
+        return LANG.get(self._lang, LANG["en"]).get(key, LANG["en"].get(key, key))
+
+    def _toggle_language(self):
+        """Switches between EN and TR UI language. TTS output is always English."""
+        self._lang = "tr" if self._lang == "en" else "en"
+        self._apply_language()
+        self._append_log(self._t("lang_note"), "system")
+
+    def _apply_language(self):
+        """Re-applies all language-dependent labels across the UI."""
+        L = self._lang
+        strings = LANG[L]
+
+        # Top bar
+        self.root.title(strings["title"])
+        self.subtitle_lbl.configure(text=strings["subtitle"])
+        self.version_lbl.configure(text=strings["active"])
+        self.lang_btn.configure(text=strings["lang_btn"])
+
+        # HUD panel labels
+        self.last_cmd_lbl.configure(text=strings["last_command"])
+        self.last_resp_lbl.configure(text=strings["last_response"])
+        self.screen_lbl.configure(text=strings["screen_analysis"])
+        self.entry_mode_lbl.configure(text=strings["entry_mode"])
+        self.voice_icon_lbl.configure(text=strings["voice"])
+        self.written_icon_lbl.configure(text=strings["written"])
+        self.copyright_lbl.configure(text=strings["copyright"])
+
+        # Tabs
+        # Note: CTkTabview doesn't support renaming tabs after creation easily,
+        # so we only update button-level labels that we store references to.
+
+        # Log panel
+        self.log_header_lbl.configure(text=strings["system_logs"])
+        self.log_clear_btn.configure(text=strings["clear"])
+
+        # Bottom bar
+        self.voice_lbl.configure(text=strings["voice_mode_label"])
+        self.text_entry.configure(placeholder_text=strings["text_placeholder"])
+        self.send_btn.configure(text=strings["send_btn"])
+
+        # System status bar (Mission Control)
+        self.vitals_label.configure(text=strings["system_status"])
+
+        # Memory panel
+        self.mem_title_lbl.configure(text=strings["memory_mgmt"])
+        self.mem_refresh_btn.configure(text=strings["refresh"])
+        self.mem_stats_lbl.configure(text=strings["stats_loading"])
+        # Update count label unit (preserve the number, only change the unit word)
+        current_count_text = self.mem_count_lbl.cget("text")
+        try:
+            count_num = int(current_count_text.split()[0])
+            self.mem_count_lbl.configure(text=f"{count_num} {strings['records']}")
+        except (ValueError, IndexError):
+            self.mem_count_lbl.configure(text=f"0 {strings['records']}")
+
+
+    # ─────────────────────────────────────────────────────────────────────────
     # UI BUILDING
     # ─────────────────────────────────────────────────────────────────────────
     def _build_ui(self):
@@ -298,13 +465,27 @@ class JarvisInterface:
                  font=("Consolas", 17, "bold"),
                  fg=ACCENT_BLUE, bg="#030810").pack(side="left", padx=16, pady=10)
 
-        tk.Label(topbar, text="JUST A RATHER VERY INTELLIGENT SYSTEM",
-                 font=("Consolas", 8), fg=TEXT_DIM, bg="#030810").pack(side="left", pady=16)
+        self.subtitle_lbl = tk.Label(topbar, text=self._t("subtitle"),
+                 font=("Consolas", 8), fg=TEXT_DIM, bg="#030810")
+        self.subtitle_lbl.pack(side="left", pady=16)
 
-        self.version_lbl = tk.Label(topbar, text="● ACTIVE v2.0",
+        self.version_lbl = tk.Label(topbar, text=self._t("active"),
                                     font=("Consolas", 10, "bold"),
                                     fg=GREEN_OK, bg="#030810")
         self.version_lbl.pack(side="right", padx=10)
+
+        # [LANG] Language toggle button
+        self.lang_btn = tk.Label(
+            topbar, text=self._t("lang_btn"),
+            font=("Consolas", 10, "bold"),
+            fg="#000000", bg=ACCENT_BLUE,
+            cursor="hand2", padx=10, pady=4,
+            relief="flat"
+        )
+        self.lang_btn.pack(side="right", padx=(0, 8), pady=12)
+        self.lang_btn.bind("<Button-1>", lambda e: self._toggle_language())
+        self.lang_btn.bind("<Enter>", lambda e: self.lang_btn.configure(bg=ACCENT_RING, fg=TEXT_MAIN))
+        self.lang_btn.bind("<Leave>", lambda e: self.lang_btn.configure(bg=ACCENT_BLUE, fg="#000000"))
 
         tk.Frame(self.root, bg=ACCENT_DIM, height=1).pack(fill="x")
 
@@ -358,22 +539,24 @@ class JarvisInterface:
                                 bg=BG_PANEL, highlightthickness=0)
         self.canvas.pack(pady=(14, 0))
 
-        self.status_lbl = tk.Label(parent, text="● STARTING",
+        self.status_lbl = tk.Label(parent, text=f"● {self._t('starting')}",
                                    font=("Consolas", 12, "bold"),
                                    fg=ACCENT_BLUE, bg=BG_PANEL)
         self.status_lbl.pack(pady=(4, 2))
 
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=6)
 
-        tk.Label(parent, text="LAST COMMAND", font=("Consolas", 8, "bold"),
-                 fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
+        self.last_cmd_lbl = tk.Label(parent, text=self._t("last_command"), font=("Consolas", 8, "bold"),
+                 fg=TEXT_DIM, bg=BG_PANEL)
+        self.last_cmd_lbl.pack(padx=14, anchor="w")
         self.last_cmd = tk.Label(parent, text="—", font=("Consolas", 10),
                                  fg=TEXT_MAIN, bg=BG_PANEL, wraplength=280,
                                  justify="left", anchor="w")
         self.last_cmd.pack(padx=14, anchor="w", pady=(2, 6))
 
-        tk.Label(parent, text="LAST RESPONSE", font=("Consolas", 8, "bold"),
-                 fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
+        self.last_resp_lbl = tk.Label(parent, text=self._t("last_response"), font=("Consolas", 8, "bold"),
+                 fg=TEXT_DIM, bg=BG_PANEL)
+        self.last_resp_lbl.pack(padx=14, anchor="w")
         self.last_resp = tk.Label(parent, text="—", font=("Consolas", 10),
                                   fg=ACCENT_BLUE, bg=BG_PANEL, wraplength=280,
                                   justify="left", anchor="w")
@@ -381,35 +564,40 @@ class JarvisInterface:
 
         # [10/10] Vision Status Box
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=4)
-        tk.Label(parent, text="👁 SCREEN ANALYSIS", font=("Consolas", 8),
-                 fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
-        self.vision_lbl = tk.Label(parent, text="Waiting...",
+        self.screen_lbl = tk.Label(parent, text=self._t("screen_analysis"), font=("Consolas", 8),
+                 fg=TEXT_DIM, bg=BG_PANEL)
+        self.screen_lbl.pack(padx=14, anchor="w")
+        self.vision_lbl = tk.Label(parent, text=self._t("waiting"),
                                    font=("Consolas", 9), fg="#5588AA", bg=BG_PANEL,
                                    wraplength=278, justify="left", anchor="w")
         self.vision_lbl.pack(padx=14, anchor="w", pady=(2, 4))
 
         # Mod Toggle
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=4)
-        tk.Label(parent, text="ENTRY MODE", font=("Consolas", 8),
-                 fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
+        self.entry_mode_lbl = tk.Label(parent, text=self._t("entry_mode"), font=("Consolas", 8),
+                 fg=TEXT_DIM, bg=BG_PANEL)
+        self.entry_mode_lbl.pack(padx=14, anchor="w")
 
         toggle_row = tk.Frame(parent, bg=BG_PANEL)
         toggle_row.pack(padx=14, pady=6, anchor="w")
 
-        tk.Label(toggle_row, text="🎙 Voice", font=("Consolas", 11),
-                 fg=TEXT_MAIN, bg=BG_PANEL).pack(side="left", padx=(0, 8))
+        self.voice_icon_lbl = tk.Label(toggle_row, text=self._t("voice"), font=("Consolas", 11),
+                 fg=TEXT_MAIN, bg=BG_PANEL)
+        self.voice_icon_lbl.pack(side="left", padx=(0, 8))
         self.mode_switch = ctk.CTkSwitch(
             toggle_row, text="", width=56, height=28,
             fg_color=ACCENT_DIM, progress_color=ORANGE,
             command=self._toggle_mode
         )
         self.mode_switch.pack(side="left")
-        tk.Label(toggle_row, text="⌨ Written", font=("Consolas", 11),
-                 fg=TEXT_DIM, bg=BG_PANEL).pack(side="left", padx=(8, 0))
+        self.written_icon_lbl = tk.Label(toggle_row, text=self._t("written"), font=("Consolas", 11),
+                 fg=TEXT_DIM, bg=BG_PANEL)
+        self.written_icon_lbl.pack(side="left", padx=(8, 0))
 
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=(8, 4))
-        tk.Label(parent, text="Oguz Emir |  J.A.R.V.I.S. ©",
-                 font=("Consolas", 8), fg=TEXT_DIM, bg=BG_PANEL).pack(pady=4)
+        self.copyright_lbl = tk.Label(parent, text=self._t("copyright"),
+                 font=("Consolas", 8), fg=TEXT_DIM, bg=BG_PANEL)
+        self.copyright_lbl.pack(pady=4)
 
     # ─────────────────────────────────────────────────────────────────────────
     # MISSION CONTROL — Rich Cards
@@ -418,8 +606,9 @@ class JarvisInterface:
         # Live Vitals (CPU/RAM) Bar
         self.vitals_frame = tk.Frame(parent, bg="#050A15", highlightbackground=ACCENT_DIM, highlightthickness=1)
         self.vitals_frame.pack(fill="x", padx=5, pady=(5, 0))
-        
-        tk.Label(self.vitals_frame, text="⚡ SYSTEM STATUS:", font=("Consolas", 9, "bold"), fg=TEXT_DIM, bg="#050A15").pack(side="left", padx=10, pady=6)
+
+        self.vitals_label = tk.Label(self.vitals_frame, text=self._t("system_status"), font=("Consolas", 9, "bold"), fg=TEXT_DIM, bg="#050A15")
+        self.vitals_label.pack(side="left", padx=10, pady=6)
         self.cpu_lbl = tk.Label(self.vitals_frame, text="CPU: %0", font=("Consolas", 9, "bold"), fg=ACCENT_BLUE, bg="#050A15")
         self.cpu_lbl.pack(side="left", padx=10)
         self.ram_lbl = tk.Label(self.vitals_frame, text="RAM: %0", font=("Consolas", 9, "bold"), fg=ACCENT_BLUE, bg="#050A15")
@@ -427,7 +616,7 @@ class JarvisInterface:
 
         self.card_container = ctk.CTkScrollableFrame(
             parent, fg_color=BG_PANEL,
-            label_text="⬢ DYNAMIC DATA CARDS",
+            label_text=self._t("dynamic_cards"),
             label_font=("Consolas", 11, "bold"),
             label_text_color=ACCENT_BLUE,
             label_fg_color="transparent",
@@ -438,8 +627,8 @@ class JarvisInterface:
 
         # Start card
         self.display_card(
-            "System Ready",
-            "Mission Control is active. Graphics cards, display analysis, and proactive actions will appear here.",
+            self._t("system_ready"),
+            self._t("system_ready_desc"),
             None
         )
         self._poll_vitals()
@@ -632,21 +821,23 @@ class JarvisInterface:
         toolbar = tk.Frame(parent, bg=BG_PANEL)
         toolbar.pack(fill="x", padx=12, pady=(10, 4))
 
-        tk.Label(toolbar, text="🧠 MEMORY MANAGEMENT",
+        self.mem_title_lbl = tk.Label(toolbar, text=self._t("memory_mgmt"),
                  font=("Consolas", 10, "bold"),
-                 fg=ACCENT_BLUE, bg=BG_PANEL).pack(side="left")
+                 fg=ACCENT_BLUE, bg=BG_PANEL)
+        self.mem_title_lbl.pack(side="left")
 
-        self.mem_count_lbl = tk.Label(toolbar, text="0 records",
+        self.mem_count_lbl = tk.Label(toolbar, text=f"0 {self._t('records')}",
                                       font=("Consolas", 9), fg=TEXT_DIM, bg=BG_PANEL)
         self.mem_count_lbl.pack(side="left", padx=14)
 
-        ctk.CTkButton(
-            toolbar, text="↻ Refresh",
+        self.mem_refresh_btn = ctk.CTkButton(
+            toolbar, text=self._t("refresh"),
             font=("Consolas", 10), height=28, width=80,
             fg_color=ACCENT_DIM, hover_color=ACCENT_BLUE,
             text_color=TEXT_MAIN,
             command=self._refresh_memory_panel
-        ).pack(side="right")
+        )
+        self.mem_refresh_btn.pack(side="right")
 
         # Statistics box
         self.mem_stats_frame = tk.Frame(parent, bg=BG_CARD,
@@ -655,7 +846,7 @@ class JarvisInterface:
 
         self.mem_stats_lbl = tk.Label(
             self.mem_stats_frame,
-            text="Statistics loading...",
+            text=self._t("stats_loading"),
             font=("Consolas", 9), fg=TEXT_DIM, bg=BG_CARD,
             anchor="w", justify="left", padx=12, pady=6
         )
@@ -677,7 +868,7 @@ class JarvisInterface:
     def _refresh_memory_panel(self):
         """Refreshes the memory list and statistics."""
         if not (self.engine and hasattr(self.engine, 'memory') and self.engine.memory):
-            self.mem_stats_lbl.configure(text="The motor is not connected yet.")
+            self.mem_stats_lbl.configure(text=self._t("engine_not_conn"))
             return
 
         threading.Thread(target=self._load_memory_data, daemon=True).start()
@@ -697,24 +888,28 @@ class JarvisInterface:
     def _render_memory_panel(self, memories: list, stats: dict):
         # Counter
         total = stats.get("total", 0)
-        self.mem_count_lbl.configure(text=f"{total} record")
+        self.mem_count_lbl.configure(text=f"{total} {self._t('records')}")
 
         # Statistics text
         by_type = stats.get("by_type", {})
         avg_imp = stats.get("avg_importance", 0.0)
-        type_labels = {"episodic": "Episodic", "semantic": "Semantic",
-                       "task": "Task", "pattern_rule": "Rule"}
+        type_labels = {
+            "episodic":    self._t("type_episodic"),
+            "semantic":    self._t("type_semantic"),
+            "task":        self._t("type_task"),
+            "pattern_rule":self._t("type_rule")
+        }
         stats_parts = [f"{type_labels.get(k, k)}: {v}" for k, v in by_type.items()]
-        stats_text = "  |  ".join(stats_parts) + f"  |  Avg. Importance: {avg_imp:.2f}"
-        self.mem_stats_lbl.configure(text=stats_text if stats_parts else "No records yet.")
+        stats_text = "  |  ".join(stats_parts) + f"  |  {self._t('avg_importance')}: {avg_imp:.2f}"
+        self.mem_stats_lbl.configure(text=stats_text if stats_parts else self._t("no_memory"))
 
         # Pie chart (if data available)
         if by_type and HAS_PIL:
             chart_data = {
-                "labels": [type_labels.get(k, k) for k in by_type],  # type_labels already in English
+                "labels": [type_labels.get(k, k) for k in by_type],
                 "values": list(by_type.values())
             }
-            ctk_img = render_pie_chart(chart_data, "Memory Distribution")
+            ctk_img = render_pie_chart(chart_data, self._t("mem_dist"))
             if ctk_img:
                 self.mem_chart_lbl.configure(image=ctk_img)
                 self.mem_chart_lbl.image = ctk_img
@@ -724,7 +919,7 @@ class JarvisInterface:
             widget.destroy()
 
         if not memories:
-            tk.Label(self.mem_list_frame, text="There is no saved memory.",
+            tk.Label(self.mem_list_frame, text=self._t("no_memory"),
                      font=("Consolas", 10), fg=TEXT_DIM, bg=BG_PANEL).pack(pady=20)
             return
 
@@ -873,11 +1068,13 @@ class JarvisInterface:
     def _build_log_panel(self, parent):
         header = tk.Frame(parent, bg=BG_PANEL)
         header.pack(fill="x", padx=12, pady=(10, 4))
-        tk.Label(header, text="[ SYSTEM LOGS ]", font=("Consolas", 9),
-                 fg=TEXT_DIM, bg=BG_PANEL).pack(side="left")
-        tk.Button(header, text="Clear", font=("Consolas", 8),
+        self.log_header_lbl = tk.Label(header, text=self._t("system_logs"), font=("Consolas", 9),
+                 fg=TEXT_DIM, bg=BG_PANEL)
+        self.log_header_lbl.pack(side="left")
+        self.log_clear_btn = tk.Button(header, text=self._t("clear"), font=("Consolas", 8),
                   fg=TEXT_DIM, bg=BG_CARD, bd=0, relief="flat", cursor="hand2",
-                  command=self._clear_logs).pack(side="right")
+                  command=self._clear_logs)
+        self.log_clear_btn.pack(side="right")
 
         self.log_box = tk.Text(parent, font=("Consolas", 11),
                                bg=BG_CARD, fg=TEXT_MAIN, wrap="word",
@@ -886,7 +1083,8 @@ class JarvisInterface:
                                padx=10, pady=6)
         self.log_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        sb = tk.Scrollbar(self.log_box, command=self.log_box.yview)
+        sb = tk.Scrollbar(parent, command=self.log_box.yview)
+        sb.pack(side="right", fill="y", padx=(0, 10), pady=(0, 10))
         self.log_box.configure(yscrollcommand=sb.set)
 
         self.log_box.tag_configure("jarvis", foreground=LOG_JARVIS)
@@ -906,20 +1104,20 @@ class JarvisInterface:
         inner.pack(fill="both", expand=True, padx=14, pady=10)
 
         self.voice_lbl = tk.Label(inner,
-                                  text="🎙 Voice mode active — You can give commands by speaking",
+                                  text=self._t("voice_mode_label"),
                                   font=("Consolas", 11), fg=TEXT_DIM, bg=BG_PANEL)
         self.voice_lbl.pack(side="left", expand=True)
 
         self.text_entry = ctk.CTkEntry(
             inner,
-            placeholder_text="⌨ Type your command and press Enter...",
+            placeholder_text=self._t("text_placeholder"),
             font=("Consolas", 12), fg_color=BG_CARD,
             border_color=ACCENT_DIM, text_color=TEXT_MAIN, height=40
         )
         self.text_entry.bind("<Return>", self._send_text)
 
         self.send_btn = ctk.CTkButton(
-            inner, text="SEND →",
+            inner, text=self._t("send_btn"),
             font=("Consolas", 12, "bold"),
             fg_color=ACCENT_DIM, hover_color=ACCENT_BLUE,
             text_color=TEXT_MAIN, height=40, width=120,
@@ -1028,13 +1226,13 @@ class JarvisInterface:
             self.text_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
             self.send_btn.pack(side="right")
             self._update_status("⌨ TEXT MODE")
-            self._append_log("[GUI] Text mode is active.", "system")
+            self._append_log(self._t("text_mode_active"), "system")
         else:
             self.text_entry.pack_forget()
             self.send_btn.pack_forget()
             self.voice_lbl.pack(side="left", expand=True)
             self._update_status("🎙 VOICE MODE")
-            self._append_log("[GUI] Voice mode is active.", "system")
+            self._append_log(self._t("voice_mode_active"), "system")
             if self.engine:
                 self.engine.reset_audio()
 
@@ -1046,7 +1244,7 @@ class JarvisInterface:
         if not text:
             return
         self.text_entry.delete(0, "end")
-        self._append_log(f"You (Written): {text}", "user")
+        self._append_log(f"{self._t('you_written')} {text}", "user")
         self.root.after(0, lambda: self.last_cmd.configure(
             text=text[:55] + ("..." if len(text) > 55 else "")
         ))
@@ -1087,7 +1285,7 @@ class JarvisInterface:
             return
         tl = t.lower()
 
-        if "sen (sesli):" in tl or "you (written):" in tl or "you (voice):" in tl:
+        if "sen (sesli):" in tl or "you (written):" in tl or "you (voice):" in tl or "sen (yazili):" in tl or "sen (yazılı):" in tl:
             tag = "user"
             content = t.split(":", 1)[-1].strip()
             self.root.after(0, lambda c=content: self.last_cmd.configure(
@@ -1200,7 +1398,7 @@ class JarvisInterface:
                             self.engine.io_bridge.notify_memory_saved
                         )
 
-                    self._append_log("[GUI] J.A.R.V.I.S. The v2.0 engine has been started.", "ok")
+                    self._append_log(self._t("engine_started"), "ok")
                     self._update_status("LISTENING")
 
                     # Automatically load the memory tab upon startup
@@ -1241,10 +1439,10 @@ class JarvisInterface:
         x = self.root.winfo_x() + (self.root.winfo_width() - 460) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - 210) // 2
         dialog.geometry(f"+{x}+{y}")
-        tk.Label(dialog, text="⬡ Auto Start",
+        tk.Label(dialog, text=self._t("autostart_title"),
                  font=("Consolas", 14, "bold"), fg=ACCENT_BLUE, bg=BG_PANEL).pack(pady=(18, 6))
         tk.Label(dialog,
-                 text="Sir, would you like me to accompany you every time Windows starts?",
+                 text=self._t("autostart_question"),
                  font=("Consolas", 11), fg=TEXT_MAIN, bg=BG_PANEL, wraplength=400).pack(pady=8)
         btn_row = tk.Frame(dialog, bg=BG_PANEL)
         btn_row.pack(pady=14)
@@ -1259,11 +1457,11 @@ class JarvisInterface:
             with open(config_file, "w") as f:
                 f.write("declined")
             dialog.destroy()
-        ctk.CTkButton(btn_row, text="✓  Yes, always start with Windows",
+        ctk.CTkButton(btn_row, text=self._t("autostart_yes"),
                       font=("Consolas", 11, "bold"), fg_color=ACCENT_DIM,
                       hover_color=ACCENT_BLUE, text_color=TEXT_MAIN,
                       width=200, height=36, command=on_yes).pack(side="left", padx=8)
-        ctk.CTkButton(btn_row, text="✗ No, no need",
+        ctk.CTkButton(btn_row, text=self._t("autostart_no"),
                       font=("Consolas", 11), fg_color="#1A0A0A",
                       hover_color="#3A1010", text_color="#AA6655",
                       width=160, height=36, command=on_no).pack(side="left", padx=8)

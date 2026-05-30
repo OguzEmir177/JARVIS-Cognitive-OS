@@ -29,7 +29,7 @@ class ProactiveWatcher:
     + HUD visual status is updated via Vision status callback"""
 
     # ── Dynamic Range Constants ───────────────────── ─────────────────────
-    MIN_INTERVAL_SECONDS = 300       # Minimum observation interval: 5 minutes (Limit protection)
+    MIN_INTERVAL_SECONDS = 900       # Minimum observation interval: 15 minutes (Limit protection)
     MAX_INTERVAL_SECONDS = 1800      # Maximum observation interval: 30 minutes
     DEFAULT_INTERVAL_SECONDS = 900   # Default start: 15 minutes
 
@@ -56,7 +56,7 @@ class ProactiveWatcher:
         "late":     {"hours": range(22, 24), "speak_threshold": "low"},
     }
 
-    def __init__(self, engine, interval_minutes: int = 5):
+    def __init__(self, engine):
         self.engine = engine
         self._running = False
 
@@ -67,9 +67,7 @@ class ProactiveWatcher:
         self._consecutive_silence = 0      # Consecutive silence timer
         self._total_observations = 0       # Total number of observations
         self._total_actions = 0            # Total number of proactive actions
-
-        from core.vision import JarvisVision
-        self.vision = JarvisVision()
+        # NOTE: JarvisVision removed — watcher uses active-window detection, not screenshots
 
     async def run(self):
         self._running = True
@@ -170,7 +168,7 @@ class ProactiveWatcher:
         try:
             response = await self.engine.brain.think(watcher_prompt, bypass_history=True)
 
-            silence_variants = ["[SILENCE]", "[SILENCE]", "SILENCE", "SILENCE"]
+            silence_variants = ["[SILENCE]", "SILENCE"]
             if any(v in response.upper() for v in silence_variants):
                 self._consecutive_silence += 1
                 logger.info(

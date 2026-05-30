@@ -218,7 +218,7 @@ class ExecutionEngine:
 
                 user_input = self._clean_wake_word(user_input)
                 if not user_input:
-                    await self.io_bridge.speak("Buyurun efendim, sizi dinliyorum.")
+                    await self.io_bridge.speak("Sir, come again. I am listening.")
                     continue
 
                 # [V12.0] Interrupt cognition loop on user input
@@ -630,7 +630,11 @@ class ExecutionEngine:
         return text.strip()
 
     def _is_shutdown_command(self, text: str) -> bool:
-        return any(cmd in text.lower() for cmd in ["sistemi kapat", "jarvis kapan", "kendini kapat", "log out"])
+        return any(cmd in text.lower() for cmd in [
+            "sistemi kapat", "jarvis kapan", "kendini kapat", "log out",
+            "shut down yourself", "close yourself", "turn off jarvis",
+            "close jarvis", "exit jarvis", "terminate yourself"
+        ])
 
     def _clean_wake_word(self, text: str) -> str:
         # v8.0 logic simplified for orchestrator

@@ -66,14 +66,15 @@ J.A.R.V.I.S. possesses true episodic memory:
 
 ---
 
-## ✨ Latest Enhancements (v16.3.0)
+## ✨ Latest Enhancements (v16.4.0)
 
 > [!IMPORTANT]
-> **STT Translation & Proactive Watcher Stability**
-> * **[System] STT Initialization Logs:** Translated the Groq Whisper & Fallback Google Web Speech API initialization logs to English to ensure a fully unified English system/console experience.
-> * **[Stability] Proactive Watcher Idle Fix:** Fixed a critical bug where the Proactive Watcher would mistakenly assume the user wanted to shut down J.A.R.V.I.S. after exactly 15 minutes of inactivity. Added a strict calibration rule forbidding the `SYSTEM_SHUTDOWN` and `SYSTEM_POWER` protocols during background proactive cycles.
+> **Bilingual Cognitive Processing & Autonomous Self-Healing**
+> * **[System] Bilingual Input Core:** J.A.R.V.I.S. now seamlessly understands and processes both English and Turkish voice commands regardless of the active UI mode. TTS responses are strictly enforced in English to prevent audio distortion, maintaining a premium user experience.
+> * **[Core/UI] Deep Code Review Fixes:** Addressed 12 deep structural bugs identified via autonomous code review, including resolving a critical `asyncio.Lock` race condition in the LLM Brain, fixing event loop blocking during locale setup, restoring invisible UI scrollbars, and patching language-switch memory counters.
+> * **[Stability] Dead Code Elimination:** Cleaned up unused Vision objects from the Proactive Watcher, fixed duplicate silence variants, and enhanced the shutdown regex to catch English-mode voice termination commands perfectly.
 
-*(For a full list of past version notes including v16.2.0 and v16.1.0, refer to the Changelog section in the codebase.)*
+*(For a full list of past version histories including v16.3.0, refer to the Changelog section in the codebase.)*
 
 ---
 

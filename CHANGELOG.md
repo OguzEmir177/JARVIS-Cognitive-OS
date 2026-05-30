@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v16.4.0] - 2026-05-30
+### Added
+- **[System] Bilingual Input Core:** J.A.R.V.I.S. now seamlessly understands and processes both English and Turkish voice commands regardless of the active UI mode. TTS responses are strictly enforced in English to prevent audio distortion.
+- **[Core] Autonomous Bug Squashing:** Added extensive Turkish language detection in system logging loops for proper user/jarvis text color tagging on the HUD.
+
+### Fixed
+- **[Stability] Brain Asyncio Race Condition:** Fixed a critical flaw where `_lock` lazy-loading allowed two threads to override the LLM execution lock, breaking mutual exclusion.
+- **[Stability] Event Loop Blocking:** Moved `locale.setlocale` out of the asynchronous `think()` block to prevent synchronous event loop freezing.
+- **[UI] GUI State & Layout:** Restored invisible scrollbars in the Log panel, patched memory counters that failed to translate dynamically, and fixed `TEXT MODE` detection logic.
+- **[Watcher] Dead Code:** Cleaned up unused `JarvisVision` initializations and dead interval parameters from the `ProactiveWatcher`.
+
+---
+
 ## [v16.3.0] - 2026-05-30
 ### Added
 - **[System] STT Initialization Logs:** Translated the Groq Whisper & Fallback Google Web Speech API initialization logs to English to ensure a fully unified English system/console experience.

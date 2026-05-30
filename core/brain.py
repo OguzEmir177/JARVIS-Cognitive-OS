@@ -34,7 +34,7 @@ class GroqBrain:
         self.config = config
         self.memory_manager = memory_manager
         self.tool_registry = tool_registry
-        self._lock = None
+        self._lock: asyncio.Lock = asyncio.Lock()  # [FIX] Eager init prevents first-call race condition
         
         load_dotenv()
         # [V8.1] Use config or env
@@ -44,6 +44,16 @@ class GroqBrain:
             
         self.client = AsyncGroq(api_key=self.api_key)
         self.model = self.config.brain_models[0]
+
+        # [V10.1] Locale setup (moved from think() — must NOT run inside async lock)
+        import locale
+        try:
+            locale.setlocale(locale.LC_TIME, 'tr_TR.UTF-8')
+        except Exception:
+            try:
+                locale.setlocale(locale.LC_TIME, 'turkish')
+            except Exception:
+                pass
         
         # [V6.0] System prompt is now generated dynamically
         self.system_prompt = self._build_system_prompt()
@@ -141,6 +151,19 @@ class GroqBrain:
             "33. [PYTHON CODING AND TRANSCRIPT RULE]: ALWAYS follow these two rules when writing Python interfaces or scripts (GUI):\n"
             "A) 'pytube' module is BROKEN, DO NOT use it! Always use 'youtube-transcript-api' for YouTube transcripts or videos.\n"
             "B) To prevent programs from closing suddenly when double-clicked, include all codes in a try-except block. If an error occurs, write it to the file named 'error_log.txt' and inform the user via tkinter messagebox.\n"
+            "34. [BILINGUAL INPUT RULE — CRITICAL]:\n"
+            "The user may speak or type commands in EITHER Turkish OR English at any time, regardless of the current UI language.\n"
+            "You MUST understand and process BOTH Turkish and English input perfectly.\n"
+            "However, ALL [PROTOCOL: SPEAK] voice responses MUST be written in ENGLISH ONLY.\n"
+            "Reason: The TTS (text-to-speech) engine is English-only, so Turkish text would sound distorted.\n"
+            "Rule summary:\n"
+            "  - Input language: Turkish OR English (accept both)\n"
+            "  - [PROTOCOL: SPEAK] output: ALWAYS English\n"
+            "  - Other protocols (REMEMBER, SCHEDULE, FILE_WRITE, etc.): content can be in either language as appropriate\n"
+            "Examples:\n"
+            "  User says: 'hava durumu nasıl?' → [PROTOCOL: WEB_SEARCH] current weather | then [PROTOCOL: SPEAK] The weather today is...\n"
+            "  User says: 'bana bir şaka anlat' → [PROTOCOL: SPEAK] Here's a joke for you: ...\n"
+            "  User says: 'müziği aç' → [PROTOCOL: APP_OPEN] Spotify\n"
         )
         
         # ── CHAPTER 2: DYNAMIC VEHICLE LIST ──
@@ -166,20 +189,6 @@ class GroqBrain:
             "content": f"{base_rules}-----------------------------------\n{tools_section}\n-----------------------------------\n{loyalty}"
         }
     async def think(self, user_input: str, bypass_history: bool = False) -> str:
-        if self._lock is None:
-            self._lock = asyncio.Lock()
-            # [V10.1] Set Locale only once, on startup (Windows noise reduction)
-            import locale
-            try:
-                # On some Windows systems, Turkish_Turkey.1254 or "tr_TR" may be required instead of tr_TR.UTF-8.
-                # Try silently, if not, continue with system default.
-                locale.setlocale(locale.LC_TIME, 'tr_TR.UTF-8')
-            except:
-                try:
-                    locale.setlocale(locale.LC_TIME, 'turkish')
-                except:
-                    pass
-
         #1. Memory and History Preparation (Under Lock)
         async with self._lock:
             memory_context = ""
@@ -220,6 +229,23 @@ class GroqBrain:
                 system_injection += "SYSTEM WARNING: MEMORY IS EMPTY or NO RELEVANT RECORD FOUND! If it asks for the user's personal information (name, etc.), say 'I couldn't find this information in my memory, please tell me'.\n"
             system_injection += "[/MEMORY]\n"
 
+            # [BILINGUAL] Detect if user input is Turkish to remind the brain of language rules
+            turkish_chars = set('çğışöüÇĞİŞÖÜ')
+            turkish_words = {'nasıl', 'nedir', 'ne', 'bana', 'yap', 'aç', 'kapat', 'göster',
+                             'ver', 'söyle', 'anlat', 'ara', 'bul', 'gönder', 'evet', 'hayır',
+                             'tamam', 'lütfen', 'merhaba', 'teşekkür', 'saat', 'bugün', 'yarın'}
+            input_lower = user_input.lower()
+            has_turkish = (
+                any(c in turkish_chars for c in user_input) or
+                any(w in input_lower.split() for w in turkish_words)
+            )
+            if has_turkish:
+                system_injection += (
+                    "[LANGUAGE REMINDER]: The user just spoke in Turkish. "
+                    "Understand the request fully and respond with [PROTOCOL: SPEAK] in ENGLISH only. "
+                    "Do NOT use Turkish in your SPEAK output — TTS is English-only.\n"
+                )
+
             if hasattr(self.memory_manager, 'pattern_extractor'):
                 patterns = self.memory_manager.pattern_extractor.get_active_patterns()
                 if patterns:
@@ -244,7 +270,7 @@ class GroqBrain:
 
         #2. Groq API Call (Outside Lock - Long running process)
         if memory_context:
-            print(f"\n[BRAIN LOG] Data Retrieved from Memory (Threshold 0.25, Filtered):\n{memory_context}\n")
+            print(f"\n[BRAIN LOG] Data Retrieved from Memory (Threshold 0.35/0.90, Filtered):\n{memory_context}\n")
 
         api_kwargs = {
             "model": self.model,
