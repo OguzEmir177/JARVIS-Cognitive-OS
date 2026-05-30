@@ -253,9 +253,9 @@ class SpeechToText:
 
         # Hangi motor aktif olduğunu logla
         if self._groq_client:
-            print("[STT] Motor: Groq Whisper Large-v3-Turbo + AI Polisher (Typeless Modu)")
+            print("[STT] Engine: Groq Whisper Large-v3-Turbo + AI Polisher (Typeless Mode)")
         else:
-            print("[STT] Motor: Google Web Speech API (Fallback -- Groq API anahtari bulunamadi)")
+            print("[STT] Engine: Google Web Speech API (Fallback -- Groq API key not found)")
 
     # ─────────────────────────────────────────────────────────────────────────
     # BEEP SOUND EFFECT
@@ -473,7 +473,7 @@ class SpeechToText:
                     print(f"[NOISE_SHIELD] Unnecessary input rejected: '{raw_text}'")
                     return None
 
-                # ── AI Polisher (Typeless Modu) ──
+                # ── AI Polisher (Typeless Mode) ──
                 if use_polisher:
                     final_text = self._polish_text(raw_text)
                 else:

@@ -394,6 +394,7 @@ class ProactiveWatcher:
             "ONLY write [SILENCE].\n\n"
 
             "⚠️ CALIBRATION RULES (MUST BE STRICTLY FOLLOWED):\n"
+            "• NEVER use [PROTOCOL: SYSTEM_SHUTDOWN] or [PROTOCOL: SYSTEM_POWER]. You are a background watcher, do not shut down the system proactively.\n"
             "• NEVER make unnecessary chatter. Empty sentences such as 'it's a nice day', 'everything is fine' are PROHIBITED.\n"
             "• NEVER give unnecessary reports such as 'I checked your screen, it's fine'.\n"
             "• NEVER share technical details (which module is running, API status, etc.)\n"
