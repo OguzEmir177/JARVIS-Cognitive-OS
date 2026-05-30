@@ -72,7 +72,7 @@ class TextToSpeech:
                         if e.code == 429:
                             # Rate limit — 3 saniye bekle ve 2 kez dene
                             for retry_count in range(2):
-                                logging.warning(f"TTS: 429 Rate Limit (Deneme {retry_count+1}), 3s bekleniyor...")
+                                # logging.warning(f"TTS: 429 Rate Limit (Deneme {retry_count+1}), 3s bekleniyor...")
                                 await asyncio.sleep(3)
                                 try:
                                     translated = _do_translate()
@@ -83,9 +83,9 @@ class TextToSpeech:
                                 except Exception:
                                     continue
                         else:
-                            logging.warning(f"TTS Çeviri HTTP hatası ({e.code}): {e} — orijinal metin kullanılıyor")
+                            pass # logging.warning(f"TTS Çeviri HTTP hatası ({e.code}): {e} — orijinal metin kullanılıyor")
                     except Exception as e:
-                        logging.warning(f"TTS Çeviri hatası: {e} — orijinal metin kullanılıyor")
+                        pass # logging.warning(f"TTS Çeviri hatası: {e} — orijinal metin kullanılıyor")
                 # ─────────────────────────────────────────────────────────
                     
                 retries = 3
@@ -97,7 +97,7 @@ class TextToSpeech:
                         return True
                     except Exception as e:
                         if attempt < retries - 1:
-                            print(f"[SES_YENİDEN_DENEME] Deneme {attempt+1} başarısız: {e}. Tekrar deneniyor...")
+                            # print(f"[SES_YENİDEN_DENEME] Deneme {attempt+1} başarısız: {e}. Tekrar deneniyor...")
                             await asyncio.sleep(0.5)
                         else:
                             raise e
@@ -117,10 +117,10 @@ class TextToSpeech:
                 pygame.time.Clock().tick(10)
                 
         except Exception as e:
-            print(f"\n[SES MODÜLÜ HATASI]: edge-tts ile konuşma oluşturulamadı: {str(e)}")
+            # print(f"\n[SES MODÜLÜ HATASI]: edge-tts ile konuşma oluşturulamadı: {str(e)}")
             # [V8.2 FIXED] pyttsx3 fallback devre dışı bırakıldı. 
             # asyncio loop çakışması ve "run loop already started" hatalarını önlemek için sessizce devam ediliyor.
-            logging.warning(f"TTS başarısız (Internet/DNS?), sessizce devam ediliyor. Detay: {e}")
+            # logging.warning(f"TTS başarısız (Internet/DNS?), sessizce devam ediliyor. Detay: {e}")
             return
             
         finally:
