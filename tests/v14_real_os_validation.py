@@ -57,7 +57,7 @@ async def run_validation():
         print(f"\n> [TEST] Girdi: '{t['input']}'")
         try:
             await engine.process_input(t['input'])
-            time.sleep(3)
+            await asyncio.sleep(3)
             success = False
             for p in t['check_process']:
                 if await check_process(p):
@@ -80,7 +80,7 @@ async def run_validation():
     print("\n> [TEST] Input: 'create test_jarvis.txt on desktop'")
     total_tests += 1
     await engine.process_input("create test_jarvis.txt on desktop")
-    time.sleep(2)
+    await asyncio.sleep(2)
     if os.path.exists(target_path) and check_log("FILE_CREATE"):
         print(f"[PASS] File created (FILE_CREATE).")
         passed_tests += 1
@@ -90,9 +90,10 @@ async def run_validation():
     print("\n> [TEST] Input: 'type hello in' (Context-Aware Test)")
     total_tests += 1
     await engine.process_input("write hello in it")
-    time.sleep(2)
-    with open(target_path, "r", encoding="utf-8") as f:
-        content = f.read()
+    await asyncio.sleep(2)
+    import aiofiles
+    async with aiofiles.open(target_path, "r", encoding="utf-8") as f:
+        content = await f.read()
     if "merhaba" in content.lower() and check_log("FILE_WRITE"):
         print(f"[PASS] Written to file (FILE_WRITE) and context worked.")
         passed_tests += 1
@@ -102,7 +103,7 @@ async def run_validation():
     print("\n> [TEST] Input: 'read file'")
     total_tests += 1
     await engine.process_input("read file")
-    time.sleep(2)
+    await asyncio.sleep(2)
     if check_log("FILE_READ"):
         print(f"   [PASS] Dosya okundu (FILE_READ).")
         passed_tests += 1
@@ -112,7 +113,7 @@ async def run_validation():
     print("\n> [TEST] Input: 'delete file'")
     total_tests += 1
     await engine.process_input("delete file")
-    time.sleep(2)
+    await asyncio.sleep(2)
     if not os.path.exists(target_path) and check_log("FILE_DELETE"):
         print(f"   [PASS] Dosya silindi (FILE_DELETE).")
         passed_tests += 1
@@ -123,7 +124,7 @@ async def run_validation():
     print("\n> [TEST] Input: 'open downloads folder'")
     total_tests += 1
     await engine.process_input("open downloads folder")
-    time.sleep(2)
+    await asyncio.sleep(2)
     if check_log("FOLDER_OPEN"):
         print(f"[PASS] Folder opened (FOLDER_OPEN).")
         passed_tests += 1
@@ -133,7 +134,7 @@ async def run_validation():
     print("\n> [TEST] Girdi: 'son indirilen dosya nedir'")
     total_tests += 1
     await engine.process_input("son indirilen dosya nedir")
-    time.sleep(2)
+    await asyncio.sleep(2)
     if check_log("FILE_LATEST"):
         print(f"   [PASS] Son dosya bulundu (FILE_LATEST).")
         passed_tests += 1

@@ -140,7 +140,7 @@ class ExecutionEngine:
         # [V9.0] ContactManager — starting contact profile manager
         from core.contact_manager import ContactManager
         self.contact_manager = ContactManager(memory_manager=self.memory)
-        self.contact_manager.initialize()
+        self.contact_manager.setup_contacts()
 
         # PlanExecutor'a referans ver
         self.plan_executor.contact_manager = self.contact_manager
@@ -678,7 +678,7 @@ class ExecutionEngine:
         from core.memory import MemoryManager
         # [V8.1 Fix] Pass path string, not config object
         m = MemoryManager(db_path=self.config.memory_db_path)
-        m.initialize()
+        m.setup_memory()
         return m
 
     async def _init_brain_with_retry(self) -> "GroqBrain":

@@ -64,7 +64,8 @@ class TextToSpeech:
                         return "".join(part[0] for part in data[0] if part[0])
 
                     try:
-                        translated = _do_translate()
+                        loop = asyncio.get_running_loop()
+                        translated = await loop.run_in_executor(None, _do_translate)
                         if translated:
                             _TRANSLATION_CACHE[text] = translated
                             speech_text = translated
@@ -75,7 +76,7 @@ class TextToSpeech:
                                 # logging.warning(f"TTS: 429 Rate Limit (Attempt {retry_count+1}), waiting 3s...")
                                 await asyncio.sleep(3)
                                 try:
-                                    translated = _do_translate()
+                                    translated = await loop.run_in_executor(None, _do_translate)
                                     if translated:
                                         _TRANSLATION_CACHE[text] = translated
                                         speech_text = translated

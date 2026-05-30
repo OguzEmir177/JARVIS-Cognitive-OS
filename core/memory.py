@@ -46,7 +46,7 @@ class MemoryManager:
     # INITIALIZATION
     # ─────────────────────────────────────────────────────────────────────────
 
-    def initialize(self):
+    def setup_memory(self):
         try:
             if self.db_path != ":memory:" and not os.path.exists(self.db_path):
                 os.makedirs(self.db_path, exist_ok=True)
