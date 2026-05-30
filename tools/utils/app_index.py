@@ -79,11 +79,8 @@ logger = logging.getLogger("JARVIS.AppIndex")
 
 
 _TR_MAP = str.maketrans(
-
-    "guşiöçöğüşiÖÇ",
-
-    "gusiocgusioc"
-
+    "ğüşıöçĞÜŞİÖÇ",
+    "gusiocGUSIOC"
 )
 
 
