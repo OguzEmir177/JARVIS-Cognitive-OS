@@ -610,7 +610,7 @@ class ExecutionEngine:
 
         # ── 4. Protocol Leak Cleaner (Leaks in text) ─
         # If a line contains a statement like [PROTOCOL: REMEMBER] and it is not a command
-        If # is in the middle of the sentence, clear it out.
+        # If # is in the middle of the sentence, clear it out.
         # [V9.8] Clear only non-command start.
         def _leak_fixer(match):
             full_match = match.group(0)
