@@ -1,16 +1,16 @@
 """
 [V13.0] J.A.R.V.I.S. — Typeless-Grade Speech-to-Text Engine
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Mimari:
-    1. Mikrofon kaydı  → speech_recognition (aynı PyAudio altyapısı)
-    2. Transkripsiyon   → Groq Whisper Large-v3-Turbo (ultra hızlı, kusursuz Türkçe)
-    3. AI Polisher      → Groq LLM veya Gemini (dolgu/gürültü temizleme + noktalama)
-    4. Fallback         → Google Web Speech API (internet/API kesilirse)
+Architecture:
+    1. Microphone recording  → speech_recognition (same PyAudio backend)
+    2. Transcription         → Groq Whisper Large-v3-Turbo (ultra-fast, flawless Turkish)
+    3. AI Polisher           → Groq LLM or Gemini (filler/noise cleanup + punctuation)
+    4. Fallback              → Google Web Speech API (if internet/API cuts out)
 
-Zamanlama Felsefesi:
-    - Konuşma İÇİNDE duraksamalara SABIR göster (pause_threshold)
-    - Konuşma BİTTİĞİNDE hızlıca kes ve işle (non_speaking_duration)
-    - phrase_time_limit ile sonsuz beklemeyi engelle
+Timing Philosophy:
+    - Be PATIENT with pauses INSIDE speech (pause_threshold)
+    - Cut and process QUICKLY when speech ENDS (non_speaking_duration)
+    - Prevent infinite wait with phrase_time_limit
 """
 
 import speech_recognition as sr
@@ -31,7 +31,7 @@ try:
     from groq import Groq
     _HAS_GROQ = True
 except ImportError:
-    logger.warning("[STT] groq paketi bulunamadı — Whisper devre dışı, Google fallback aktif.")
+    logger.warning("[STT] groq package not found — Whisper disabled, Google fallback active.")
 
 # ── Gemini SDK (AI Polisher alternatifi) ──
 _HAS_GEMINI = False
@@ -43,7 +43,7 @@ except ImportError:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# AI POLISHER — Typeless'ın Sırrı
+# AI POLISHER — The Secret of Typeless
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 _POLISHER_SYSTEM_PROMPT = """Sen bir Türkçe metin düzelticisin. Görevin, sesli dikte ile elde edilmiş ham metni pürüzsüz, akıcı Türkçe'ye dönüştürmek.
@@ -66,7 +66,7 @@ Kurallar:
 
 
 def _polish_with_groq(raw_text: str, api_key: str) -> Optional[str]:
-    """Groq LLM ile ham transkripsiyon metnini parlatır."""
+    """Polishes raw transcription text using Groq LLM."""
     try:
         client = Groq(api_key=api_key)
         response = client.chat.completions.create(
@@ -79,19 +79,19 @@ def _polish_with_groq(raw_text: str, api_key: str) -> Optional[str]:
             max_tokens=1024,
         )
         polished = response.choices[0].message.content.strip()
-        # LLM bazen tırnak içine alıyor, temizle
+        # LLM sometimes wraps in quotes, clean up
         if polished.startswith('"') and polished.endswith('"'):
             polished = polished[1:-1]
         if polished.startswith("'") and polished.endswith("'"):
             polished = polished[1:-1]
         return polished
     except Exception as e:
-        logger.warning(f"[AI_POLISHER] Groq LLM parlatma hatası: {e}")
+        logger.warning(f"[AI_POLISHER] Groq LLM polishing error: {e}")
         return None
 
 
 def _polish_with_gemini(raw_text: str, api_key: str) -> Optional[str]:
-    """Gemini ile ham transkripsiyon metnini parlatır (Groq yedek)."""
+    """Polishes raw transcription text using Gemini (Groq backup)."""
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-2.0-flash")
@@ -109,16 +109,16 @@ def _polish_with_gemini(raw_text: str, api_key: str) -> Optional[str]:
             polished = polished[1:-1]
         return polished
     except Exception as e:
-        logger.warning(f"[AI_POLISHER] Gemini parlatma hatası: {e}")
+        logger.warning(f"[AI_POLISHER] Gemini polishing error: {e}")
         return None
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# WHISPER HALÜSINASYON KALKANI
+# WHISPER HALLUCINATION SHIELD
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Whisper sessizlikte/gürültüde ürettiği bilinen hayalet metinler.
-# Küçük harfe dönüştürülüp kontrol edilir.
+# Known ghost texts produced by Whisper in silence/noise.
+# Checked after converting to lowercase.
 _WHISPER_HALLUCINATION_PATTERNS = [
     "altyazı m.k.",
     "altyazı m.k",
@@ -151,28 +151,28 @@ _WHISPER_HALLUCINATION_PATTERNS = [
 
 def _is_whisper_hallucination(text: str) -> bool:
     """
-    Whisper'ın sessizlikte ürettiği hayalet metinleri tespit eder.
-    Tam eşleşme veya kısmi eşleşme kontrolleri yapar.
+    Detects ghost texts produced by Whisper in silence.
+    Performs exact or partial match checks.
     """
     if not text:
         return True
     
     cleaned = text.lower().strip().rstrip('.').strip()
     
-    # Boş veya çok kısa (1-2 karakter) → muhtemelen gürültü
+    # Empty or very short (1-2 chars) → likely noise
     if len(cleaned) < 2:
         return True
     
-    # Sadece noktalama işaretlerinden mi oluşuyor?
+    # Consists only of punctuation?
     if all(c in '.,!?;:-…\'"()[] ' for c in cleaned):
         return True
     
-    # Bilinen halüsinasyon kalıplarıyla tam eşleşme
+    # Exact match with known hallucination patterns
     for pattern in _WHISPER_HALLUCINATION_PATTERNS:
         if cleaned == pattern.lower().rstrip('.'):
             return True
     
-    # "altyazı" veya "alt yazı" İÇEREN kısa metinler (≤4 kelime)
+    # Short texts (≤4 words) CONTAINING "altyazı" or "alt yazı"
     if len(cleaned.split()) <= 4:
         if "altyazı" in cleaned or "alt yazı" in cleaned:
             return True
@@ -182,9 +182,9 @@ def _is_whisper_hallucination(text: str) -> bool:
 
 def _calculate_audio_rms(audio: sr.AudioData) -> float:
     """
-    Ses verisinin RMS (Root Mean Square) değerini hesaplar.
-    Bu değer sesin gerçek "yüksekliğini" ölçer.
-    Sessizlik ≈ 0-300, konuşma ≈ 500-10000+
+    Calculates the RMS (Root Mean Square) value of audio data.
+    This value measures the actual "loudness" of the sound.
+    Silence ≈ 0-300, speech ≈ 500-10000+
     """
     try:
         raw_data = audio.get_raw_data(convert_rate=16000, convert_width=2)
@@ -198,12 +198,12 @@ def _calculate_audio_rms(audio: sr.AudioData) -> float:
         rms = math.sqrt(sum_squares / num_samples)
         return rms
     except Exception as e:
-        logger.warning(f"[RMS] Ses seviyesi hesaplanamadı: {e}")
-        return 9999.0  # Hata durumunda geçir (false positive'den iyidir)
+        logger.warning(f"[RMS] Could not calculate audio level: {e}")
+        return 9999.0  # Pass on error (better than false positive)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ANA STT SINIFI
+# MAIN STT CLASS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 class SpeechToText:
@@ -211,8 +211,8 @@ class SpeechToText:
     Typeless-Grade Speech-to-Text Engine.
 
     Pipeline:
-        Mikrofon → WAV bytes → Groq Whisper → AI Polisher → Temiz Metin
-        (Fallback: Mikrofon → Google Web Speech API → Temel Filtre → Metin)
+        Microphone → WAV bytes → Groq Whisper → AI Polisher → Clean Text
+        (Fallback: Microphone → Google Web Speech API → Basic Filter → Text)
     """
 
     def __init__(self):
@@ -220,34 +220,34 @@ class SpeechToText:
         self.recognizer.dynamic_energy_threshold = True
         self.recognizer.energy_threshold = 4000
 
-        # ── [V13.1] Mute Flag — Yazılı modda mikrofonu tamamen devre dışı bırakır ──
+        # ── [V13.1] Mute Flag — Completely disables microphone in text mode ──
         self._muted: bool = False
 
-        # ── Zamanlama Felsefesi ──
-        # pause_threshold: Konuşma İÇİNDE duraksamalara kaç sn tolerans
-        #   → 1.4 sn = düşünme duraksamalarında hemen kesme
-        # non_speaking_duration: "Sessizlik başladı" kararı için gereken süre
-        #   → 0.6 sn = konuşma bittiğinde hızlıca algıla
-        # phrase_threshold: Ses başlangıcı olarak kabul için min süre
-        #   → 0.4 sn = çok kısa tıklama seslerini filtrele
+        # ── Timing Philosophy ──
+        # pause_threshold: How many seconds to tolerate pauses INSIDE speech
+        #   → 1.4s = don't cut immediately during thinking pauses
+        # non_speaking_duration: Time needed to decide "silence has started"
+        #   → 0.6s = detect end of speech quickly
+        # phrase_threshold: Min duration to accept as start of speech
+        #   → 0.4s = filter out very short click sounds
         self.recognizer.pause_threshold = 1.4
         self.recognizer.phrase_threshold = 0.4
         self.recognizer.non_speaking_duration = 0.6
 
-        # ── API Anahtarları ──
+        # ── API Keys ──
         self._groq_api_key = os.getenv("GROQ_API_KEY")
         self._gemini_api_key = os.getenv("GEMINI_API_KEY")
 
-        # ── Groq Client (tekrar tekrar oluşturmamak için cache) ──
+        # ── Groq Client (cached to avoid repeated instantiation) ──
         self._groq_client: Optional[Groq] = None
         if _HAS_GROQ and self._groq_api_key:
             try:
                 self._groq_client = Groq(api_key=self._groq_api_key)
-                logger.info("[STT] Groq Whisper motoru hazır.")
+                logger.info("[STT] Groq Whisper engine ready.")
             except Exception as e:
-                logger.warning(f"[STT] Groq client oluşturulamadı: {e}")
+                logger.warning(f"[STT] Could not create Groq client: {e}")
 
-        # Beep için mixer başlatma
+        # Initialize mixer for beep sound
         if not pygame.mixer.get_init():
             pygame.mixer.init(frequency=44100, size=-16, channels=1)
 
@@ -258,11 +258,11 @@ class SpeechToText:
             print("[STT] Motor: Google Web Speech API (Fallback -- Groq API anahtari bulunamadi)")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # BEEP SES EFEKTİ
+    # BEEP SOUND EFFECT
     # ─────────────────────────────────────────────────────────────────────────
 
     def _play_beep(self):
-        """Dı-dıt sesi: İki kısa bip sesi üretir ve çalar."""
+        """Di-dit sound: Generates and plays two short beep tones."""
         try:
             sample_rate = 44100
             def generate_tone(freq, duration_ms):
@@ -282,22 +282,22 @@ class SpeechToText:
             channel = beep2.play()
             while channel.get_busy(): pygame.time.Clock().tick(10)
         except Exception as e:
-            print(f"[SESLİ GERİ BİLDİRİM HATASI]: Beep çalınamadı: {e}")
+            print(f"[AUDIO FEEDBACK ERROR]: Beep could not play: {e}")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # GROQ WHISPER TRANSKRİPSİYON
+    # GROQ WHISPER TRANSCRIPTION
     # ─────────────────────────────────────────────────────────────────────────
 
     def _transcribe_with_whisper(self, audio: sr.AudioData) -> Optional[str]:
         """
-        Ses verisini Groq Whisper API ile transkripsiyon yapar.
-        Döndürülen metin ham transkripsiyon — henüz parlatılmamış.
+        Transcribes audio data using the Groq Whisper API.
+        The returned text is raw transcription — not yet polished.
         """
         if not self._groq_client:
             return None
 
         try:
-            # AudioData → WAV bytes (bellekte, disk I/O yok)
+            # AudioData → WAV bytes (in memory, no disk I/O)
             wav_bytes = audio.get_wav_data(convert_rate=16000, convert_width=2)
             wav_buffer = io.BytesIO(wav_bytes)
             wav_buffer.name = "audio.wav"
@@ -310,32 +310,32 @@ class SpeechToText:
                 temperature=0.0,
             )
 
-            # API text formatında direkt string döndürür
+            # API returns direct string in text format
             text = transcription.strip() if isinstance(transcription, str) else str(transcription).strip()
             return text if text else None
 
         except Exception as e:
-            logger.warning(f"[STT_WHISPER] Groq Whisper hatası: {e}")
+            logger.warning(f"[STT_WHISPER] Groq Whisper error: {e}")
             return None
 
     # ─────────────────────────────────────────────────────────────────────────
-    # AI POLISHER (TYPELESS MODU)
+    # AI POLISHER (TYPELESS MODE)
     # ─────────────────────────────────────────────────────────────────────────
 
     def _polish_text(self, raw_text: str) -> str:
         """
-        Ham transkripsiyon metnini AI ile parlatır.
-        Kısa komutlarda (≤5 kelime) polisher atlanır — gereksiz gecikmeyi önler.
+        Polishes raw transcription text with AI.
+        Polisher is skipped for short commands (≤5 words) — prevents unnecessary delay.
         """
         if not raw_text:
             return raw_text
 
-        # Kısa ve temiz metinlerde polisher'a gerek yok
+        # No need for polisher on short, clean texts
         word_count = len(raw_text.split())
         if word_count <= 5:
             return self._basic_noise_filter(raw_text)
 
-        # Öncelik: Groq LLM → Gemini → Temel Filtre
+        # Priority: Groq LLM → Gemini → Basic Filter
         if self._groq_api_key:
             polished = _polish_with_groq(raw_text, self._groq_api_key)
             if polished:
@@ -346,26 +346,26 @@ class SpeechToText:
             if polished:
                 return polished
 
-        # En kötü senaryo: temel filtre
+        # Worst case: basic filter
         return self._basic_noise_filter(raw_text)
 
     def _basic_noise_filter(self, text: str) -> str:
-        """Temel dolgu/gürültü filtresi — AI yoksa devreye girer."""
+        """Basic filler/noise filter — activates when AI is unavailable."""
         if not text:
             return text
 
         clean = text.strip()
         noise_words = ["ıı", "öö", "ee", "ııı", "ööö", "eee", "şey", "yani", "hıh", "ehm", "hım"]
 
-        # Sadece gürültüden ibaret mi?
+        # Consists only of noise?
         if clean.lower() in noise_words or len(clean) < 2:
             return ""
 
-        # Gürültü kelimelerini temizle
+        # Remove noise words
         for nw in noise_words:
             clean = clean.replace(f" {nw} ", " ").replace(f" {nw}", "").replace(f"{nw} ", "")
 
-        # Fazla boşlukları temizle
+        # Remove extra spaces
         clean = " ".join(clean.split())
         return clean.strip()
 
@@ -374,7 +374,7 @@ class SpeechToText:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _transcribe_with_google(self, audio: sr.AudioData) -> Optional[str]:
-        """Google Web Speech API fallback — Groq başarısız olursa kullanılır."""
+        """Google Web Speech API fallback — used when Groq fails."""
         try:
             text = self.recognizer.recognize_google(audio, language="tr-TR")
             return text.strip() if text else None
@@ -382,95 +382,95 @@ class SpeechToText:
             return None
 
     # ─────────────────────────────────────────────────────────────────────────
-    # ANA DİNLEME MOTORU
+    # MAIN LISTENING ENGINE
     # ─────────────────────────────────────────────────────────────────────────
 
     def _do_listen(self, pause_threshold: float, phrase_time_limit: int,
                    timeout: int = None, on_speech_end=None, use_polisher: bool = True) -> str:
         """
-        İç dinleme motoru — Typeless Grade (V13.1)
+        Internal listening engine — Typeless Grade (V13.1)
 
         Pipeline:
-            0. Mute kontrolü — yazılı moddayken mikrofon AÇILMAZ
-            1. Mikrofonu aç, ortam gürültüsüne adapte ol
-            2. pause_threshold süresince sessizlik algılanınca kaydı bitir
-            3. Groq Whisper ile transkripsiyon (fallback: Google)
-            4. AI Polisher ile metin parlatma (uzun metinlerde)
-            5. Temiz, noktalamalı Türkçe metin döndür
+            0. Mute check — microphone does NOT open in text mode
+            1. Open microphone, adapt to ambient noise
+            2. Stop recording when silence detected for pause_threshold seconds
+            3. Transcription with Groq Whisper (fallback: Google)
+            4. Text polishing with AI Polisher (for long texts)
+            5. Return clean, punctuated text
         """
-        # [V13.1] Yazılı moddayken ses algılama tamamen devre dışı
+        # [V13.1] Audio detection completely disabled in text mode
         if self._muted:
             return None
 
         try:
             with sr.Microphone() as source:
-                # Ortam gürültüsüne hızlı adaptasyon (0.5 sn yeterli)
+                # Quick adaptation to ambient noise (0.5s is enough)
                 self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
 
-                # Bu oturum için pause_threshold'u geçici ayarla
+                # Temporarily set pause_threshold for this session
                 old_pause = self.recognizer.pause_threshold
                 self.recognizer.pause_threshold = pause_threshold
 
-                # ── Dinleme ──
+                # ── Listening ──
                 audio = self.recognizer.listen(
                     source,
                     timeout=timeout,
                     phrase_time_limit=phrase_time_limit
                 )
 
-                # Kayıt bitti — anında geri bildirim ver
+                # Recording done — give immediate feedback
                 if on_speech_end:
                     on_speech_end()
 
-                # pause_threshold'u eski haline döndür
+                # Restore pause_threshold to previous value
                 self.recognizer.pause_threshold = old_pause
 
-                # [V13.1 FIX] Eğer dinleme işlemi sırasında mute edildiysek (yazılı moda geçildiyse)
-                # sesi işleme, hemen iptal et.
+                # [V13.1 FIX] If muted during listening (switched to text mode),
+                # discard audio immediately.
                 if self._muted:
                     return None
 
-                # ── [V13.2] RMS Enerji Kontrolü — Sessiz sesi API'ye gönderme ──
+                # ── [V13.2] RMS Energy Check — Don't send silent audio to API ──
                 audio_rms = _calculate_audio_rms(audio)
-                logger.debug(f"[RMS] Ses seviyesi: {audio_rms:.0f}")
+                logger.debug(f"[RMS] Audio level: {audio_rms:.0f}")
                 
-                # RMS < 350 → mikrofon açık ama kimse konuşmuyor
-                # Bu eşik çoğu ortamda sessizliği yakalar.
-                # Gerekirse self.min_rms_threshold ile ayarlanabilir.
+                # RMS < 350 → microphone is open but nobody is speaking
+                # This threshold catches silence in most environments.
+                # Can be adjusted via self.min_rms_threshold if needed.
                 _MIN_RMS = 350
                 if audio_rms < _MIN_RMS:
-                    logger.debug(f"[RMS_SHIELD] Ses çok düşük ({audio_rms:.0f} < {_MIN_RMS}), atlanıyor.")
+                    logger.debug(f"[RMS_SHIELD] Audio too low ({audio_rms:.0f} < {_MIN_RMS}), skipping.")
                     return None
 
-                # ── Transkripsiyon Pipeline ──
+                # ── Transcription Pipeline ──
                 raw_text = None
 
-                # 1. Groq Whisper ile dene
+                # 1. Try with Groq Whisper
                 if self._groq_client:
                     raw_text = self._transcribe_with_whisper(audio)
                     if raw_text:
                         logger.debug(f"[WHISPER_RAW] {raw_text}")
 
-                # 2. Whisper başarısızsa Google fallback
+                # 2. Google fallback if Whisper fails
                 if not raw_text:
                     raw_text = self._transcribe_with_google(audio)
                     if raw_text:
                         logger.debug(f"[GOOGLE_RAW] {raw_text}")
 
-                # Hiçbir motor sonuç vermedi
+                # No engine returned a result
                 if not raw_text:
                     return None
 
-                # ── [V13.2] Whisper Halüsinasyon Kalkanı ──
+                # ── [V13.2] Whisper Hallucination Shield ──
                 if _is_whisper_hallucination(raw_text):
-                    print(f"[HALLUCINATION_SHIELD] Whisper hayalet metin reddedildi: '{raw_text}'")
+                    print(f"[HALLUCINATION_SHIELD] Whisper ghost text rejected: '{raw_text}'")
                     return None
 
-                # ── Noise Shield: Sadece gürültüden ibaret mi? ──
+                # ── Noise Shield: Consists only of noise? ──
                 clean_check = raw_text.lower().strip()
                 noise_only = ["ıı", "öö", "ee", "ııı", "ööö", "eee", "hıh", "ehm", "hım"]
                 if clean_check in noise_only or len(clean_check) < 2:
-                    print(f"[NOISE_SHIELD] Gereksiz girdi reddedildi: '{raw_text}'")
+                    print(f"[NOISE_SHIELD] Unnecessary input rejected: '{raw_text}'")
                     return None
 
                 # ── AI Polisher (Typeless Modu) ──
@@ -484,12 +484,12 @@ class SpeechToText:
 
                 final_text = final_text.strip()
                 
-                # [V13.1 FIX] İşlemler (API vs.) sürerken yazılı moda geçilmiş olabilir
-                # En son aşamada tekrar kontrol et, kapalıysa çöpe at.
+                # [V13.1 FIX] Text mode may have been activated while API calls were running.
+                # Check again at the final stage; if muted, discard.
                 if self._muted:
                     return None
                     
-                print(f"Sen (Sesli): {final_text}")
+                print(f"You (Voice): {final_text}")
                 return final_text
 
         except (sr.UnknownValueError, sr.WaitTimeoutError):
@@ -503,7 +503,7 @@ class SpeechToText:
     # ─────────────────────────────────────────────────────────────────────────
 
     def reset_recognizer(self):
-        """Kritik reset: Recognizer nesnesini tamamen sıfırlar."""
+        """Critical reset: Completely resets the Recognizer object."""
         self.recognizer = sr.Recognizer()
         self.recognizer.dynamic_energy_threshold = True
         self.recognizer.energy_threshold = 4000
@@ -512,17 +512,17 @@ class SpeechToText:
         self.recognizer.non_speaking_duration = 0.6
 
     # ─────────────────────────────────────────────────────────────────────────
-    # PUBLIC API — Engine tarafından çağrılır
+    # PUBLIC API — Called by Engine
     # ─────────────────────────────────────────────────────────────────────────
 
     def listen(self, timeout: int = 5, on_speech_end=None) -> str:
         """
-        Normal komut modu.
+        Normal command mode.
 
-        Zamanlama:
-            pause_threshold  = 1.4 sn → Konuşma içi duraklama toleransı
-            phrase_time_limit = 20 sn → Tek seferde max konuşma süresi
-            Polisher          = Kısa komutlarda atlanır, uzunlarda devreye girer
+        Timing:
+            pause_threshold   = 1.4s → Tolerance for pauses within speech
+            phrase_time_limit = 20s  → Max speech duration in one take
+            Polisher          = Skipped for short commands, activated for longer ones
         """
         return self._do_listen(
             pause_threshold=1.4,
@@ -534,14 +534,14 @@ class SpeechToText:
 
     def listen_dictation(self, on_speech_end=None) -> str:
         """
-        Dikte modu — Uzun mesajlar, WhatsApp, not yazma.
+        Dictation mode — Long messages, WhatsApp, note-taking.
 
-        Zamanlama:
-            pause_threshold  = 2.5 sn → Uzun düşünme duraksamalarına sabır
-            phrase_time_limit = 60 sn → 1 dakikaya kadar kesintisiz konuşma
-            Polisher          = Tam kapasite (dolgu temizleme + noktalama)
+        Timing:
+            pause_threshold   = 2.5s → Patient with long thinking pauses
+            phrase_time_limit = 60s  → Up to 1 minute of uninterrupted speech
+            Polisher          = Full capacity (filler cleanup + punctuation)
         """
-        print("\n[J.A.R.V.I.S. DİKTE MODU] Mesajı tamamen söyleyin, bitince bekleyin...")
+        print("\n[J.A.R.V.I.S. DICTATION MODE] Speak the full message, then wait...")
         return self._do_listen(
             pause_threshold=2.5,
             phrase_time_limit=60,

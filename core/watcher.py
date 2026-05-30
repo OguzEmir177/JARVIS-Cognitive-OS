@@ -102,7 +102,7 @@ class ProactiveWatcher:
         now = datetime.now()
         self._total_observations += 1
 
-        # 1. Gece modu — tamamen susma
+        # 1. Night mode — complete silence
         if now.hour < 8 or now.hour >= 23:
             logger.info("[WATCHER] Night mode. Proactive action has been suspended.")
             # Increase the range to maximum in night mode
@@ -123,8 +123,8 @@ class ProactiveWatcher:
         if hasattr(self.engine, 'cognitive_core') and self.engine.cognitive_core:
             situation = self.engine.cognitive_core.world_state.get_situation_assessment()
             
-        active_app = situation.get("active_app", "Bilinmiyor")
-        active_win = situation.get("active_window", "Bilinmiyor")
+        active_app = situation.get("active_app", "Unknown")
+        active_win = situation.get("active_window", "Unknown")
         
         if active_app != "Unknown" and active_win != "Unknown":
             screen_summary = f"The user is currently working on window '{active_win}' in application '{active_app}'."
@@ -197,14 +197,14 @@ class ProactiveWatcher:
             self._total_actions += 1
             logger.info(
                 f"[WATCHER] Watchman took proactive action!"
-                f"(Toplam eylem: {self._total_actions})"
+                f"(Total proactive actions: {self._total_actions})"
             )
 
             # Add proactive action summary as card to Mission Control
             self._send_watcher_action_card(now, screen_summary, response)
 
             task_id = str(uuid.uuid4())[:8]
-            task_state = self.engine.state_manager.create_task(task_id=task_id, goal="[OTONOM EYLEM]")
+            task_state = self.engine.state_manager.create_task(task_id=task_id, goal="[AUTONOMOUS ACTION]")
 
             plan = await self.engine.plan_executor.detect_and_parse_plan(response, watcher_prompt)
             if plan:
@@ -256,12 +256,12 @@ class ProactiveWatcher:
             self._consecutive_stable = 0
             logger.info(
                 f"[WATCHER] Screen replacement detected!"
-                f"(Benzerlik: {similarity:.2f} < {self.SIMILARITY_THRESHOLD})"
+                f"(Similarity: {similarity:.2f} < {self.SIMILARITY_THRESHOLD})"
             )
         else:
             self._consecutive_stable += 1
             logger.debug(
-                f"[WATCHER] Ekran stabil. "
+                f"[WATCHER] Screen stable. "
                 f"(Similarity: {similarity:.2f}, Sequential stable: {self._consecutive_stable})"
             )
 
@@ -283,7 +283,7 @@ class ProactiveWatcher:
         if new_interval != self._current_interval:
             logger.info(
                 f"[WATCHER] Range updated: {self._current_interval:.0f}s → {new_interval:.0f}s"
-                f"({'⚡ Hızlandı' if screen_changed else '🐢 Yavaşladı'})"
+                f"({'⚡ Sped Up' if screen_changed else '🐢 Slowed Down'})"
             )
         self._current_interval = new_interval
 
@@ -364,10 +364,10 @@ class ProactiveWatcher:
         stats_line = (
             f"[WATCHER STATISTICS]"
             f"Total observations: {self._total_observations} |"
-            f"Toplam proaktif eylem: {self._total_actions} | "
+            f"Total proactive actions: {self._total_actions} | "
             f"Consecutive silence: {self._consecutive_silence} |"
             f"Current range: {self._current_interval:.0f}s |"
-            f"Proaktiflik seviyesi: {level_name.upper()}"
+            f"Proactivity level: {level_name.upper()}"
         )
 
         watcher_prompt = (
@@ -379,7 +379,7 @@ class ProactiveWatcher:
 
             f"[LAST SAVED MEMORY]\n{recent_memory}\n\n"
 
-            f"[BEHAVIOR CALIBRATION — {level_name.upper()} MOD]\n"
+            f"[BEHAVIOR CALIBRATION — {level_name.upper()} MODE]\n"
             f"{calibration}\n\n"
 
             f"{stats_line}\n\n"
@@ -391,7 +391,7 @@ class ProactiveWatcher:
             "3. If you have an idea that is really important and will be useful to the user, use [PROTOCOL: SPEAK]"
             "Intercede gently.\n"
             "4. If everything is normal and there is NO issue important enough to bother you, don't say anything and"
-            "SADECE [SILENCE] yaz.\n\n"
+            "ONLY write [SILENCE].\n\n"
 
             "⚠️ CALIBRATION RULES (MUST BE STRICTLY FOLLOWED):\n"
             "• NEVER make unnecessary chatter. Empty sentences such as 'it's a nice day', 'everything is fine' are PROHIBITED.\n"
@@ -414,7 +414,7 @@ class ProactiveWatcher:
         if not (hasattr(self.engine, 'io_bridge') and self.engine.io_bridge):
             return
         try:
-            prefix = "🔍 Observation Summary" if silent else "👁 Ekran Analizi"
+            prefix = "🔍 Observation Summary" if silent else "👁 Screen Analysis"
             interval_str = f"{self._current_interval:.0f}s"
             title = f"{prefix}  —  {now.strftime('%H:%M')}  [{interval_str}]"
             content = screen_summary[:400] + ("..." if len(screen_summary) > 400 else "")
@@ -427,12 +427,12 @@ class ProactiveWatcher:
         if not (hasattr(self.engine, 'io_bridge') and self.engine.io_bridge):
             return
         try:
-            title = f"⚡ Proaktif Eylem  —  {now.strftime('%H:%M')}"
+            title = f"⚡ Proactive Action  —  {now.strftime('%H:%M')}"
             screen_part = (screen_summary[:120] + "...") if len(screen_summary) > 120 else screen_summary
             action_part = (action_response[:200] + "...") if len(action_response) > 200 else action_response
             content = (
                 f"📺 Observation: {screen_part}\n\n"
-                f"🤖 Tepki: {action_part}"
+                f"🤖 Response: {action_part}"
             )
             self.engine.io_bridge.display_card(title, content)
         except Exception as e:

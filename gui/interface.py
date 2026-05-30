@@ -47,7 +47,7 @@ try:
 except ImportError:
     HAS_PIL = False
 
-# ── Renk Paleti ──────────────────────────────────────────────────────────────
+# ── Color Palette ────────────────────────────────────────────────────────────
 BG_DEEP     = "#040810"
 BG_PANEL    = "#070D1C"
 BG_CARD     = "#091224"
@@ -312,7 +312,7 @@ class JarvisInterface:
         content = tk.Frame(self.root, bg=BG_DEEP)
         content.pack(fill="both", expand=True, padx=8, pady=(6, 0))
 
-        # Sol HUD
+        # Left HUD
         left = tk.Frame(content, bg=BG_PANEL, width=320,
                         highlightbackground=ACCENT_DIM, highlightthickness=1)
         left.pack(side="left", fill="y", padx=(0, 5), pady=2)
@@ -337,7 +337,7 @@ class JarvisInterface:
 
         tab_log     = self.tabview.add("LOGS")
         tab_mission = self.tabview.add("MISSION CONTROL")
-        tab_memory  = self.tabview.add("HAFIZA")
+        tab_memory  = self.tabview.add("MEMORY")
 
         self._build_log_panel(tab_log)
         self._build_mission_panel(tab_mission)
@@ -365,25 +365,25 @@ class JarvisInterface:
 
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=6)
 
-        tk.Label(parent, text="SON KOMUT", font=("Consolas", 8, "bold"),
+        tk.Label(parent, text="LAST COMMAND", font=("Consolas", 8, "bold"),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
         self.last_cmd = tk.Label(parent, text="—", font=("Consolas", 10),
                                  fg=TEXT_MAIN, bg=BG_PANEL, wraplength=280,
                                  justify="left", anchor="w")
         self.last_cmd.pack(padx=14, anchor="w", pady=(2, 6))
 
-        tk.Label(parent, text="SON YANIT", font=("Consolas", 8, "bold"),
+        tk.Label(parent, text="LAST RESPONSE", font=("Consolas", 8, "bold"),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
         self.last_resp = tk.Label(parent, text="—", font=("Consolas", 10),
                                   fg=ACCENT_BLUE, bg=BG_PANEL, wraplength=280,
                                   justify="left", anchor="w")
         self.last_resp.pack(padx=14, anchor="w", pady=(2, 6))
 
-        # [10/10] Vision Durum Kutusu
+        # [10/10] Vision Status Box
         tk.Frame(parent, bg=ACCENT_DIM, height=1).pack(fill="x", padx=18, pady=4)
         tk.Label(parent, text="👁 SCREEN ANALYSIS", font=("Consolas", 8),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(padx=14, anchor="w")
-        self.vision_lbl = tk.Label(parent, text="Bekliyor...",
+        self.vision_lbl = tk.Label(parent, text="Waiting...",
                                    font=("Consolas", 9), fg="#5588AA", bg=BG_PANEL,
                                    wraplength=278, justify="left", anchor="w")
         self.vision_lbl.pack(padx=14, anchor="w", pady=(2, 4))
@@ -396,7 +396,7 @@ class JarvisInterface:
         toggle_row = tk.Frame(parent, bg=BG_PANEL)
         toggle_row.pack(padx=14, pady=6, anchor="w")
 
-        tk.Label(toggle_row, text="🎙 Sesli", font=("Consolas", 11),
+        tk.Label(toggle_row, text="🎙 Voice", font=("Consolas", 11),
                  fg=TEXT_MAIN, bg=BG_PANEL).pack(side="left", padx=(0, 8))
         self.mode_switch = ctk.CTkSwitch(
             toggle_row, text="", width=56, height=28,
@@ -412,7 +412,7 @@ class JarvisInterface:
                  font=("Consolas", 8), fg=TEXT_DIM, bg=BG_PANEL).pack(pady=4)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # MISSION CONTROL — Zengin Kartlar
+    # MISSION CONTROL — Rich Cards
     # ─────────────────────────────────────────────────────────────────────────
     def _build_mission_panel(self, parent):
         # Live Vitals (CPU/RAM) Bar
@@ -496,12 +496,12 @@ class JarvisInterface:
                 ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img,
                                        size=(max_w, new_h))
                 img_lbl = ctk.CTkLabel(card, image=ctk_img, text="")
-                img_lbl.image = ctk_img  # referans tut
+                img_lbl.image = ctk_img  # keep reference
                 img_lbl.pack(padx=15, pady=(0, 10))
             except Exception:
                 pass  # If the image cannot be loaded, only the text remains
 
-        # Glow animasyonu
+        # Glow animation
         def glow():
             if card.winfo_exists():
                 card.configure(border_color=ACCENT_BLUE)
@@ -540,7 +540,7 @@ class JarvisInterface:
 
         tk.Frame(card, bg=ACCENT_DIM, height=1).pack(fill="x", padx=15, pady=(5, 0))
 
-        # Koordinat bilgisi
+        # Coordinate info
         tk.Label(card, text=f"📍 {lat:.5f}, {lon:.5f}  —  zoom {zoom}",
                 font=("Consolas", 9), fg=TEXT_DIM, bg=BG_CARD).pack(
                 padx=15, pady=(6, 4), anchor="w")
@@ -552,7 +552,7 @@ class JarvisInterface:
             img_lbl.image = ctk_img
             img_lbl.pack(padx=15, pady=(0, 12))
         else:
-            # staticmap yoksa veya internet yoksa bilgi ver
+            # no staticmap or no internet — show info
             tk.Label(card, text="⚠ Failed to load map. (pip install staticmap)",
                     font=("Consolas", 9), fg="#FF6B35", bg=BG_CARD).pack(
                     padx=15, pady=(0, 12), anchor="w")
@@ -641,7 +641,7 @@ class JarvisInterface:
         self.mem_count_lbl.pack(side="left", padx=14)
 
         ctk.CTkButton(
-            toolbar, text="↻ Yenile",
+            toolbar, text="↻ Refresh",
             font=("Consolas", 10), height=28, width=80,
             fg_color=ACCENT_DIM, hover_color=ACCENT_BLUE,
             text_color=TEXT_MAIN,
@@ -702,16 +702,16 @@ class JarvisInterface:
         # Statistics text
         by_type = stats.get("by_type", {})
         avg_imp = stats.get("avg_importance", 0.0)
-        type_labels = {"episodic": "Epizodik", "semantic": "Semantik",
-                       "task": "Duty", "pattern_rule": "Kural"}
+        type_labels = {"episodic": "Episodic", "semantic": "Semantic",
+                       "task": "Task", "pattern_rule": "Rule"}
         stats_parts = [f"{type_labels.get(k, k)}: {v}" for k, v in by_type.items()]
-        stats_text = "  |  ".join(stats_parts) + f"|  Avg. Severity: {avg_imp:.2f}"
-        self.mem_stats_lbl.configure(text=stats_text if stats_parts else "No registration yet.")
+        stats_text = "  |  ".join(stats_parts) + f"  |  Avg. Importance: {avg_imp:.2f}"
+        self.mem_stats_lbl.configure(text=stats_text if stats_parts else "No records yet.")
 
         # Pie chart (if data available)
         if by_type and HAS_PIL:
             chart_data = {
-                "labels": [type_labels.get(k, k) for k in by_type],
+                "labels": [type_labels.get(k, k) for k in by_type],  # type_labels already in English
                 "values": list(by_type.values())
             }
             ctk_img = render_pie_chart(chart_data, "Memory Distribution")
@@ -772,7 +772,7 @@ class JarvisInterface:
                      font=("Consolas", 7),
                      fg=TEXT_DIM, bg=BG_CARD).pack(side="right")
 
-            # Metin
+            # Text
             text = mem.get("text", "")
             display_text = text[:120] + ("..." if len(text) > 120 else "")
             tk.Label(inner, text=display_text,
@@ -875,7 +875,7 @@ class JarvisInterface:
         header.pack(fill="x", padx=12, pady=(10, 4))
         tk.Label(header, text="[ SYSTEM LOGS ]", font=("Consolas", 9),
                  fg=TEXT_DIM, bg=BG_PANEL).pack(side="left")
-        tk.Button(header, text="Temizle", font=("Consolas", 8),
+        tk.Button(header, text="Clear", font=("Consolas", 8),
                   fg=TEXT_DIM, bg=BG_CARD, bd=0, relief="flat", cursor="hand2",
                   command=self._clear_logs).pack(side="right")
 
@@ -892,8 +892,8 @@ class JarvisInterface:
         self.log_box.tag_configure("jarvis", foreground=LOG_JARVIS)
         self.log_box.tag_configure("user",   foreground=LOG_USER)
         self.log_box.tag_configure("error",  foreground=LOG_ERROR)
-        self.log_box.tag_configure("error_bg", foreground="#FF8888", background="#3A1010") # Hover Error
-        self.log_box.tag_configure("brain_bg", foreground="#77AABB", background="#0A1830") # Vurgulu Beyin Logu
+        self.log_box.tag_configure("error_bg", foreground="#FF8888", background="#3A1010") # Critical Error
+        self.log_box.tag_configure("brain_bg", foreground="#77AABB", background="#0A1830") # Highlighted Brain Log
         self.log_box.tag_configure("system", foreground=LOG_SYSTEM)
         self.log_box.tag_configure("ok",     foreground=LOG_OK)
         self.log_box.tag_configure("time",   foreground="#223344")
@@ -1012,8 +1012,8 @@ class JarvisInterface:
             return "PROCESSING", ORANGE
         if any(x in s for x in ["SPEAKING", "DICTATION"]):   return "WORKING",   ACCENT_BLUE
         if "STARTING" in s: return "STARTING", TEXT_DIM
-        if any(x in s for x in ["YAZILI", "SON"]):      return "KOMUTU BEKLE", ORANGE
-        return "HAZIR", ACCENT_DIM
+        if any(x in s for x in ["WRITTEN", "TEXT"]):   return "AWAITING CMD", ORANGE
+        return "READY", ACCENT_DIM
 
     # ─────────────────────────────────────────────────────────────────────────
     # MODE SWITCH
@@ -1027,14 +1027,14 @@ class JarvisInterface:
             self.voice_lbl.pack_forget()
             self.text_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
             self.send_btn.pack(side="right")
-            self._update_status("⌨ YAZILI MOD")
-            self._append_log("[GUI] Written mode is active.", "system")
+            self._update_status("⌨ TEXT MODE")
+            self._append_log("[GUI] Text mode is active.", "system")
         else:
             self.text_entry.pack_forget()
             self.send_btn.pack_forget()
             self.voice_lbl.pack(side="left", expand=True)
-            self._update_status("🎙 SOUND MODE")
-            self._append_log("[GUI] Sesli mod aktif.", "system")
+            self._update_status("🎙 VOICE MODE")
+            self._append_log("[GUI] Voice mode is active.", "system")
             if self.engine:
                 self.engine.reset_audio()
 
@@ -1087,13 +1087,13 @@ class JarvisInterface:
             return
         tl = t.lower()
 
-        if "sen (sesli):" in tl or "you (written):" in tl:
+        if "sen (sesli):" in tl or "you (written):" in tl or "you (voice):" in tl:
             tag = "user"
             content = t.split(":", 1)[-1].strip()
             self.root.after(0, lambda c=content: self.last_cmd.configure(
                 text=c[:55] + ("..." if len(c) > 55 else "")
             ))
-        elif "[j.a.r.v.i.s.]:" in tl and "hata" not in tl and "unsuccessful" not in tl:
+        elif "[j.a.r.v.i.s.]:" in tl and "error" not in tl and "unsuccessful" not in tl:
             tag = "jarvis"
             if "]: " in t:
                 resp = t.split("]: ", 1)[-1]
@@ -1102,11 +1102,11 @@ class JarvisInterface:
                 ))
         elif "successful" in tl:
             tag = "ok"
-        elif "unsuccessful" in tl or "hata" in tl or "error" in tl or "kritik" in tl:
+        elif "unsuccessful" in tl or "error" in tl or "critical" in tl:
             tag = "error_bg" if "[critical error]" in tl else "error"
-        elif "[beyi̇n logu]" in tl or "[beyin logu]" in tl:
+        elif "[brain log]" in tl or "[beyin logu]" in tl or "[beyi̇n logu]" in tl:
             tag = "brain_bg"
-        elif "dinliyor" in tl:
+        elif "listening" in tl:
             tag = "system"
             self.root.after(0, lambda: self._update_status("LISTENING"))
         else:
@@ -1217,7 +1217,7 @@ class JarvisInterface:
         threading.Thread(target=launch, daemon=True).start()
 
     # ─────────────────────────────────────────────────────────────────────────
-    # AUTOSTART (mevcut logic korundu)
+    # AUTOSTART (existing logic preserved)
     # ─────────────────────────────────────────────────────────────────────────
     def _check_autostart(self):
         import time as _t
@@ -1259,7 +1259,7 @@ class JarvisInterface:
             with open(config_file, "w") as f:
                 f.write("declined")
             dialog.destroy()
-        ctk.CTkButton(btn_row, text="✓  Evet, her zaman aktif ol",
+        ctk.CTkButton(btn_row, text="✓  Yes, always start with Windows",
                       font=("Consolas", 11, "bold"), fg_color=ACCENT_DIM,
                       hover_color=ACCENT_BLUE, text_color=TEXT_MAIN,
                       width=200, height=36, command=on_yes).pack(side="left", padx=8)
@@ -1312,7 +1312,7 @@ $s.Description     = "J.A.R.V.I.S. AI Assistant"
         self.root.after(0, lambda: self.status_lbl.configure(text=f"● {self._status}"))
         if "FOCUS" in status:
             self.bring_to_front()
-        if status.upper() == "KAPATILIYOR":
+        if status.upper() in ("KAPATILIYOR", "SHUTTING DOWN", "CLOSING"):
             self.root.after(800, self._on_close)
 
     def bring_to_front(self):
@@ -1332,7 +1332,7 @@ $s.Description     = "J.A.R.V.I.S. AI Assistant"
             print(f"[FOCUS_SHIELD] Window focus blocked: {e}")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # KAPATMA
+    # CLOSE / SHUTDOWN
     # ─────────────────────────────────────────────────────────────────────────
     def _on_close(self):
         self._running = False

@@ -24,10 +24,10 @@ class IOBridge:
         self._stt_instance: Optional[object] = None
         self._gui_callback: Optional[Callable] = None
 
-        # [V9.5] Graceful shutdown sinyali
+        # [V9.5] Graceful shutdown signal
         self._shutdown_requested: bool = False
 
-        # [10/10] Yeni callback'ler
+        # [10/10] New callbacks
         self._card_callback: Optional[Callable] = None
         self._chart_card_callback: Optional[Callable] = None   # (title, data, chart_type)
         self._vision_status_callback: Optional[Callable] = None  # (status_text, image_b64)
@@ -62,7 +62,7 @@ class IOBridge:
                 logger.info("[IOBridge] Queue woken up to switch to voice mode.")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # SETTER'LAR
+    # SETTERS
     # ─────────────────────────────────────────────────────────────────────────
 
     def set_tts(self, tts_func: Callable) -> None:
@@ -97,7 +97,7 @@ class IOBridge:
 
         data format (example):
           bar/line/area:
-            {"labels": [...], "values": [...], "ylabel": "Değer"}
+            {"labels": [...], "values": [...], "ylabel": "Value"}
           Pie:
             {"labels": [...], "values": [...]}"""
         self._chart_card_callback = callback
@@ -133,7 +133,7 @@ class IOBridge:
                 logger.warning(f"Error showing map card: {e}")
         else:
             # Fallback: show coordinates as text card
-            self.display_card(title, f"📍 Konum: {lat:.5f}, {lon:.5f}")
+            self.display_card(title, f"📍 Location: {lat:.5f}, {lon:.5f}")
 
 
 
@@ -152,7 +152,7 @@ class IOBridge:
             return
         self._shutdown_requested = True
         logger.info("[IOBridge] 🔴 Shutdown protocol initiated.")
-        self.update_gui("KAPATILIYOR")
+        self.update_gui("SHUTTING DOWN")
         if self.text_input_queue is not None:
             try:
                 self.text_input_queue.put("__SHUTDOWN__")
@@ -269,7 +269,7 @@ class IOBridge:
                 logger.warning(f"Error while updating vision status: {e}")
         else:
             # Fallback: reflect the card to the log panel
-            self.display_card("👁 Ekran Analizi", summary, screenshot_path)
+            self.display_card("👁 Screen Analysis", summary, screenshot_path)
 
     def notify_memory_saved(self, text: str, memory_type: str, importance: float) -> None:
         """[10/10] Called by the memory module (via set_on_save_callback).

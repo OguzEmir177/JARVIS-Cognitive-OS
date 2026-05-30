@@ -61,7 +61,7 @@ async def main():
     config = EngineConfig()
     engine = ExecutionEngine(config)
 
-    # ── TTS enjeksiyonu ──
+    # ── TTS injection ──
     try:
         from audio.tts import TextToSpeech
         tts = TextToSpeech()
@@ -70,7 +70,7 @@ async def main():
     except Exception as e:
         print(f"[INIT] Failed to load TTS module: {e}")
 
-    # ── STT enjeksiyonu ──
+    # ── STT injection ──
     try:
         from audio.stt import SpeechToText
         stt = SpeechToText()

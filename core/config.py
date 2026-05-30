@@ -48,11 +48,11 @@ class EngineConfig:
     # ── Queue & Concurrency ──
     max_queue_size: int = 50
 
-    # ── Timeout'lar ──
+    # ── Timeouts ──
     tool_timeout_seconds: float = 30.0
     brain_timeout_seconds: float = 10.0
 
-    # ── Retry Limitleri ──
+    # ── Retry Limits ──
     max_replan_attempts: int = 2
     brain_connect_retries: int = 5
     max_task_retries: int = 2

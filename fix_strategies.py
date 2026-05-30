@@ -8,7 +8,7 @@ f.close()
 to_delete = [k for k in d if 'hesap' in k.lower()]
 for k in to_delete:
     chain = d[k]["tool_chain"]
-    print(f"SILINIYOR: {k} -> {chain}")
+    print(f"DELETING: {k} -> {chain}")
     del d[k]
 
 f = open('memory_db/learned_strategies.json', 'w', encoding='utf-8')
