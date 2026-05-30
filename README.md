@@ -66,15 +66,14 @@ J.A.R.V.I.S. possesses true episodic memory:
 
 ---
 
-## ✨ Latest Enhancements (v16.2.0)
+## ✨ Latest Enhancements (v16.3.0)
 
 > [!IMPORTANT]
-> **Post-Audit Hardening, Optimization & 1-Click Installer**
-> * **[Security] Un-bypassable AST Sandbox:** Enhanced AST validation of `DynamicSkillSynthesizer` to block all potential sandbox escape vectors. Direct built-in manipulation (`__import__`, `getattr`, `setattr`, `globals`, `locals`, `compile`) and dunder attributes (`__builtins__`, `__dict__`, `__class__`, etc.) are now strictly blocked. Validation runs entirely asynchronous in a thread pool to avoid blocking the event loop.
-> * **[Optimizations] Memory Leak Fix & Semantic Routing Threshold:** Addressed a critical memory leak in `SemanticRouter` during TF-IDF vector pruning. Expanded confidence routing; scores between `0.30 <= score < 0.65` now match with `is_forced=False`, keeping local matching speed while leaving final validation to the cognitive LLM.
-> * **[Installer] 1-Click System Setup (`install.bat`):** Added a new, fully automated 7-step installer for Windows systems. Sets up Python `venv`, fetches FFmpeg, manages configs, and places a desktop shortcut.
+> **STT Translation & Proactive Watcher Stability**
+> * **[System] STT Initialization Logs:** Translated the Groq Whisper & Fallback Google Web Speech API initialization logs to English to ensure a fully unified English system/console experience.
+> * **[Stability] Proactive Watcher Idle Fix:** Fixed a critical bug where the Proactive Watcher would mistakenly assume the user wanted to shut down J.A.R.V.I.S. after exactly 15 minutes of inactivity. Added a strict calibration rule forbidding the `SYSTEM_SHUTDOWN` and `SYSTEM_POWER` protocols during background proactive cycles.
 
-*(For a full list of past version notes including v16.1.0 and v16.0.0, refer to the Changelog section in the codebase.)*
+*(For a full list of past version notes including v16.2.0 and v16.1.0, refer to the Changelog section in the codebase.)*
 
 ---
 
