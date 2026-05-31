@@ -323,21 +323,27 @@ class ExecutionEngine:
             # — each file command targets a different file, cached arg is invalid
             # [V15.5] Added PYTHON_EXEC — each coding task is unique,
             # cached strategy reruns old/incorrect code
-            FILE_DYNAMIC_TAGS = {"FILE_CREATE", "FILE_WRITE", "FILE_READ", "FILE_DELETE",
-                                  "FOLDER_OPEN", "FILE_LATEST", "PYTHON_EXEC"}
+            # [FIX] Added WHATSAPP_MESSAGE and other text-based tools so they don't send old messages
+            DYNAMIC_CONTENT_TAGS = {
+                "FILE_CREATE", "FILE_WRITE", "FILE_READ", "FILE_DELETE",
+                "FOLDER_OPEN", "FILE_LATEST", "PYTHON_EXEC",
+                "WHATSAPP_MESSAGE", "WEB_SEARCH", "GOOGLE_SEARCH", "YT_SEARCH",
+                "LLM_EVAL", "YOUTUBE_STRATEGY", "REMEMBER", "STARTUP_REMINDER",
+                "SCHEDULE", "MAP_SHOW", "CHART_SHOW", "SPEAK"
+            }
             learned_strategy = None
             if hasattr(self, 'adaptive_learner') and not repeat_task_id:
-                # Run keyword router first — skip learned strategy if FILE_*
+                # Run keyword router first — skip learned strategy if dynamic
                 try:
                     _quick_route = self.cognitive_core.tool_router._keyword_route(user_input) if self.cognitive_core else None
-                    if _quick_route and _quick_route.tool_tag.upper() in FILE_DYNAMIC_TAGS:
+                    if _quick_route and _quick_route.tool_tag.upper() in DYNAMIC_CONTENT_TAGS:
                         logger.info(f"[V15.0] {_quick_route.tool_tag} — learned strategy skipped (dynamic)")
                     else:
                         learned_strategy = self.adaptive_learner.find_strategy(user_input)
                 except Exception:
                     learned_strategy = self.adaptive_learner.find_strategy(user_input)
                 
-                if learned_strategy and learned_strategy.tool_chain and learned_strategy.tool_chain[0].upper() in FILE_DYNAMIC_TAGS:
+                if learned_strategy and learned_strategy.tool_chain and learned_strategy.tool_chain[0].upper() in DYNAMIC_CONTENT_TAGS:
                     logger.info(f"[V15.0] Learned strategy {learned_strategy.tool_chain[0]} was skipped because it was dynamic.")
                     learned_strategy = None
 
