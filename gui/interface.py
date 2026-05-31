@@ -115,6 +115,13 @@ LANG = {
         "type_semantic":      "Semantic",
         "type_task":          "Task",
         "type_rule":          "Rule",
+        "text_mode":          "⌨ TEXT MODE",
+        "voice_mode":         "🎙 VOICE MODE",
+        "listening":          "LISTENING",
+        "processing":         "PROCESSING",
+        "working":            "WORKING",
+        "awaiting_cmd":       "AWAITING CMD",
+        "ready":              "READY",
     },
     "tr": {
         "title":              "J.A.R.V.I.S. — Sistem Kontrol Merkezi",
@@ -164,6 +171,13 @@ LANG = {
         "type_semantic":      "Semantik",
         "type_task":          "Görev",
         "type_rule":          "Kural",
+        "text_mode":          "⌨ YAZILI MOD",
+        "voice_mode":         "🎙 SESLİ MOD",
+        "listening":          "DİNLİYOR",
+        "processing":         "İŞLENİYOR",
+        "working":            "ÇALIŞIYOR",
+        "awaiting_cmd":       "KOMUT BEKLENİYOR",
+        "ready":              "HAZIR",
     }
 }
 
@@ -450,6 +464,13 @@ class JarvisInterface:
             self.mem_count_lbl.configure(text=f"{count_num} {strings['records']}")
         except (ValueError, IndexError):
             self.mem_count_lbl.configure(text=f"0 {strings['records']}")
+            
+        # Update the vision status if it is in a default waiting state
+        if self.vision_lbl.cget("text") == LANG["en"]["waiting"] or self.vision_lbl.cget("text") == LANG["tr"]["waiting"]:
+            self.vision_lbl.configure(text=strings["waiting"])
+            
+        # Re-apply the current status translation
+        self._update_status(self._status)
 
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1205,13 +1226,13 @@ class JarvisInterface:
 
     def _get_status_info(self):
         s = self._status.upper()
-        if "LISTENING" in s:   return "LISTENING",     GREEN_OK
-        if any(x in s for x in ["THINKING", "PROCESSING", "WORKING"]):
-            return "PROCESSING", ORANGE
-        if any(x in s for x in ["SPEAKING", "DICTATION"]):   return "WORKING",   ACCENT_BLUE
-        if "STARTING" in s: return "STARTING", TEXT_DIM
-        if any(x in s for x in ["WRITTEN", "TEXT"]):   return "AWAITING CMD", ORANGE
-        return "READY", ACCENT_DIM
+        if "LISTENING" in s or "DİNLİYOR" in s:   return self._t("listening"),     GREEN_OK
+        if any(x in s for x in ["THINKING", "PROCESSING", "WORKING", "İŞLENİYOR", "ÇALIŞIYOR"]):
+            return self._t("processing"), ORANGE
+        if any(x in s for x in ["SPEAKING", "DICTATION"]):   return self._t("working"),   ACCENT_BLUE
+        if "STARTING" in s or "BAŞLANIYOR" in s: return self._t("starting"), TEXT_DIM
+        if any(x in s for x in ["WRITTEN", "TEXT", "KOMUT BEKLENİYOR", "YAZILI"]):   return self._t("awaiting_cmd"), ORANGE
+        return self._t("ready"), ACCENT_DIM
 
     # ─────────────────────────────────────────────────────────────────────────
     # MODE SWITCH
@@ -1225,13 +1246,13 @@ class JarvisInterface:
             self.voice_lbl.pack_forget()
             self.text_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
             self.send_btn.pack(side="right")
-            self._update_status("⌨ TEXT MODE")
+            self._update_status("text_mode")
             self._append_log(self._t("text_mode_active"), "system")
         else:
             self.text_entry.pack_forget()
             self.send_btn.pack_forget()
             self.voice_lbl.pack(side="left", expand=True)
-            self._update_status("🎙 VOICE MODE")
+            self._update_status("voice_mode")
             self._append_log(self._t("voice_mode_active"), "system")
             if self.engine:
                 self.engine.reset_audio()
@@ -1306,7 +1327,7 @@ class JarvisInterface:
             tag = "brain_bg"
         elif "listening" in tl:
             tag = "system"
-            self.root.after(0, lambda: self._update_status("LISTENING"))
+            self.root.after(0, lambda: self._update_status("listening"))
         else:
             tag = "system"
 
@@ -1399,7 +1420,7 @@ class JarvisInterface:
                         )
 
                     self._append_log(self._t("engine_started"), "ok")
-                    self._update_status("LISTENING")
+                    self._update_status("listening")
 
                     # Automatically load the memory tab upon startup
                     self.root.after(2000, self._refresh_memory_panel)
@@ -1507,7 +1528,16 @@ $s.Description     = "J.A.R.V.I.S. AI Assistant"
     # ─────────────────────────────────────────────────────────────────────────
     def _update_status(self, status: str):
         self._status = status.upper()
-        self.root.after(0, lambda: self.status_lbl.configure(text=f"● {self._status}"))
+        
+        # Translate for display
+        status_key = status.lower().replace(" ", "_").replace("⌨_", "").replace("🎙_", "")
+        display_text = self._t(status_key)
+        
+        # If it wasn't translated (same as key), just use the original status
+        if display_text == status_key:
+            display_text = status
+            
+        self.root.after(0, lambda: self.status_lbl.configure(text=f"● {display_text}"))
         if "FOCUS" in status:
             self.bring_to_front()
         if status.upper() in ("KAPATILIYOR", "SHUTTING DOWN", "CLOSING"):

@@ -448,6 +448,7 @@ class PlanExecutor:
             "brain":              self.brain,
             "memory":             self.memory,
             "plan_executor":      self,
+            "original_request":   getattr(task_state, 'goal', "")
         }
         if hasattr(self, 'scheduler') and self.scheduler:
             ctx["scheduler"] = self.scheduler

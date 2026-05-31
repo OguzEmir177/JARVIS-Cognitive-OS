@@ -1766,6 +1766,28 @@ class ShutdownTool(BaseTool):
 
         io_bridge = ctx.get("io_bridge")
 
+        original_req = ctx.get("original_request", "").lower()
+
+
+
+        # [V9.5 FIX] Prevent LLM hallucinated shutdown
+
+        # The user requested that J.A.R.V.I.S should NEVER shut down unless explicitly ordered with "sistemi kapat"
+
+        if original_req and "sistemi kapat" not in original_req:
+
+            logger.warning(f"[ShutdownTool] Hallucinated shutdown prevented for request: '{original_req}'")
+
+            return ToolResult(
+
+                success=False,
+
+                message="Shutdown rejected. User didn't explicitly request shutdown.",
+
+                speak="Sir, I will not shut down unless you explicitly command me to 'sistemi kapat'."
+
+            )
+
 
 
         if io_bridge is None:
