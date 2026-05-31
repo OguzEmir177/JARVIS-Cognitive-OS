@@ -447,7 +447,31 @@ class JarvisInterface:
 
         # Bottom bar
         self.voice_lbl.configure(text=strings["voice_mode_label"])
+        
+        # [FIX] CustomTkinter placeholder bug: changing placeholder while focused can turn it into real text.
+        # We temporarily steal focus to root, configure the placeholder, and then restore focus.
+        has_focus = False
+        try:
+            has_focus = (self.root.focus_get() == self.text_entry._entry)
+        except Exception:
+            pass
+            
+        if has_focus:
+            self.root.focus_set()
+            
         self.text_entry.configure(placeholder_text=strings["text_placeholder"])
+        
+        # If any stuck placeholder text managed to sneak in, delete it
+        current_text = self.text_entry.get()
+        if current_text.startswith(LANG["en"]["text_placeholder"]):
+            self.text_entry.delete(0, len(LANG["en"]["text_placeholder"]))
+        if current_text.startswith(LANG["tr"]["text_placeholder"]):
+            self.text_entry.delete(0, len(LANG["tr"]["text_placeholder"]))
+            
+        if has_focus:
+            # Using after to let Tkinter process the focus_set event
+            self.root.after(10, self.text_entry.focus_set)
+            
         self.send_btn.configure(text=strings["send_btn"])
 
         # System status bar (Mission Control)
