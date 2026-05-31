@@ -456,32 +456,13 @@ class JarvisInterface:
         # Bottom bar
         self.voice_lbl.configure(text=strings["voice_mode_label"])
         
-        # [FIX] CustomTkinter placeholder bug:
-        # Instead of messing with focus (which triggers CTk's FocusIn/Out events and bakes the old placeholder into real text),
-        # we will directly clean the internal tkinter entry of ANY known placeholders before and after configuring.
-        
-        # 1. Clean any existing placeholder text from the internal entry
-        internal_text = self.text_entry._entry.get()
-        for lang_code in LANG:
-            ph = LANG[lang_code].get("text_placeholder", "")
-            if ph and internal_text.startswith(ph):
-                self.text_entry._entry.delete(0, "end")
-                self.text_entry._entry.insert(0, internal_text[len(ph):])
-                
-        # 2. Configure the new placeholder
-        self.text_entry.configure(placeholder_text=strings["text_placeholder"])
-        
-        # 3. If the entry is NOT focused and is empty (internal text is empty), force the new placeholder to show
-        has_focus = False
-        try:
-            has_focus = (self.root.focus_get() == self.text_entry._entry)
-        except Exception:
-            pass
-            
-        if not has_focus and not self.text_entry.get():
-            self.text_entry._entry.delete(0, "end")
-            self.text_entry._entry.insert(0, strings["text_placeholder"])
-            self.text_entry._entry.configure(text_color=self.text_entry._placeholder_text_color)
+        # [FIX] Manually update the CTkTextbox placeholder text for language change
+        current_text = self.text_entry.get("1.0", "end-1c")
+        # If it was showing the old placeholder, update it to the new one
+        if current_text in (LANG["en"]["text_placeholder"], LANG["tr"]["text_placeholder"]):
+            self.text_entry.delete("1.0", "end")
+            self.text_entry.insert("1.0", strings["text_placeholder"])
+            self.text_entry.configure(text_color=TEXT_DIM)
             
         self.send_btn.configure(text=strings["send_btn"])
 
@@ -1164,13 +1145,20 @@ class JarvisInterface:
                                   font=("Consolas", 11), fg=TEXT_DIM, bg=BG_PANEL)
         self.voice_lbl.pack(side="left", expand=True)
 
-        self.text_entry = ctk.CTkEntry(
+        self.text_entry = ctk.CTkTextbox(
             inner,
-            placeholder_text=self._t("text_placeholder"),
             font=("Consolas", 12), fg_color=BG_CARD,
-            border_color=ACCENT_DIM, text_color=TEXT_MAIN, height=40
+            border_color=ACCENT_DIM, text_color=TEXT_MAIN, height=40,
+            wrap="word", border_width=1
         )
+        # Bind events for the textbox
         self.text_entry.bind("<Return>", self._send_text)
+        self.text_entry.bind("<Shift-Return>", self._insert_newline)
+        self.text_entry.bind("<FocusIn>", self._on_entry_focus_in)
+        self.text_entry.bind("<FocusOut>", self._on_entry_focus_out)
+        
+        # Initialize placeholder manually since CTkTextbox lacks placeholder_text
+        self._on_entry_focus_out(None)
 
         self.send_btn = ctk.CTkButton(
             inner, text=self._t("send_btn"),
@@ -1295,16 +1283,43 @@ class JarvisInterface:
     # ─────────────────────────────────────────────────────────────────────────
     # TEXT ENTRY
     # ─────────────────────────────────────────────────────────────────────────
-    def _send_text(self, event=None):
-        text = self.text_entry.get().strip()
+    def _insert_newline(self, event=None):
+        # Shift+Enter handles newline natively in Tkinter Text widget, we just let it happen.
+        return None
+        
+    def _on_entry_focus_in(self, event=None):
+        text = self.text_entry.get("1.0", "end-1c")
+        if text in (LANG["en"]["text_placeholder"], LANG["tr"]["text_placeholder"]):
+            self.text_entry.delete("1.0", "end")
+            self.text_entry.configure(text_color=TEXT_MAIN)
+
+    def _on_entry_focus_out(self, event=None):
+        text = self.text_entry.get("1.0", "end-1c").strip()
         if not text:
-            return
-        self.text_entry.delete(0, "end")
+            self.text_entry.delete("1.0", "end")
+            self.text_entry.insert("1.0", self._t("text_placeholder"))
+            self.text_entry.configure(text_color=TEXT_DIM)
+
+    def _send_text(self, event=None):
+        text = self.text_entry.get("1.0", "end-1c").strip()
+        
+        # Prevent sending if it's empty or just the placeholder
+        if not text or text in (LANG["en"]["text_placeholder"], LANG["tr"]["text_placeholder"]):
+            return "break"
+            
+        self.text_entry.delete("1.0", "end")
         self._append_log(f"{self._t('you_written')} {text}", "user")
+        
         self.root.after(0, lambda: self.last_cmd.configure(
             text=text[:55] + ("..." if len(text) > 55 else "")
         ))
         self.input_queue.put(text)
+        
+        # We manually trigger focus out to restore placeholder since text is now empty
+        self.root.after(10, lambda: self._on_entry_focus_out(None))
+        
+        # Stop default Enter behaviour (newline insertion)
+        return "break"
 
     # ─────────────────────────────────────────────────────────────────────────
     # LOG
