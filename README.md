@@ -15,7 +15,7 @@
 ## 🚀 Live Demo
 *(Insert your live demo link, GIF, or YouTube video link here to showcase the Cognitive AI OS in action!)*
 
-[▶️ Watch J.A.R.V.I.S. in Action](#)
+[▶️ Watch J.A.R.V.I.S. in Action](#) *(Demo link coming soon — video walkthrough in progress)*
 
 ---
 
@@ -104,7 +104,8 @@ pip install -r requirements.txt
 ### 3. Environment Variables
 Create a `.env` file in the root directory:
 ```env
-OPENAI_API_KEY=your-openai-api-key
+GROQ_API_KEY=your-groq-api-key
+GOOGLE_API_KEY=your-google-api-key-optional
 ```
 
 ### 4. Execution Options
