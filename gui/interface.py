@@ -151,7 +151,6 @@ LANG = {
         "records":            "kayıt",
         "refresh":            "↻ Yenile",
         "stats_loading":      "İstatistikler yükleniyor...",
-        "engine_not_conn":    "Motor henüz bağlı değil.",
         "no_memory":          "Kayıtlı bellek yok.",
         "text_mode_active":   "[GUI] Yazı modu aktif.",
         "voice_mode_active":  "[GUI] Ses modu aktif.",
@@ -437,6 +436,15 @@ class JarvisInterface:
         self.written_icon_lbl.configure(text=strings["written"])
         self.copyright_lbl.configure(text=strings["copyright"])
 
+        # Update vision_lbl if it is currently showing the waiting placeholder
+        current_vision = self.vision_lbl.cget("text")
+        if current_vision in (LANG["en"]["waiting"], LANG["tr"]["waiting"]):
+            self.vision_lbl.configure(text=strings["waiting"])
+            
+        # Re-apply the current status translation
+        if hasattr(self, '_status'):
+            self._update_status(self._status)
+
         # Tabs
         # Note: CTkTabview doesn't support renaming tabs after creation easily,
         # so we only update button-level labels that we store references to.
@@ -448,29 +456,32 @@ class JarvisInterface:
         # Bottom bar
         self.voice_lbl.configure(text=strings["voice_mode_label"])
         
-        # [FIX] CustomTkinter placeholder bug: changing placeholder while focused can turn it into real text.
-        # We temporarily steal focus to root, configure the placeholder, and then restore focus.
+        # [FIX] CustomTkinter placeholder bug:
+        # Instead of messing with focus (which triggers CTk's FocusIn/Out events and bakes the old placeholder into real text),
+        # we will directly clean the internal tkinter entry of ANY known placeholders before and after configuring.
+        
+        # 1. Clean any existing placeholder text from the internal entry
+        internal_text = self.text_entry._entry.get()
+        for lang_code in LANG:
+            ph = LANG[lang_code].get("text_placeholder", "")
+            if ph and internal_text.startswith(ph):
+                self.text_entry._entry.delete(0, "end")
+                self.text_entry._entry.insert(0, internal_text[len(ph):])
+                
+        # 2. Configure the new placeholder
+        self.text_entry.configure(placeholder_text=strings["text_placeholder"])
+        
+        # 3. If the entry is NOT focused and is empty (internal text is empty), force the new placeholder to show
         has_focus = False
         try:
             has_focus = (self.root.focus_get() == self.text_entry._entry)
         except Exception:
             pass
             
-        if has_focus:
-            self.root.focus_set()
-            
-        self.text_entry.configure(placeholder_text=strings["text_placeholder"])
-        
-        # If any stuck placeholder text managed to sneak in, delete it
-        current_text = self.text_entry.get()
-        if current_text.startswith(LANG["en"]["text_placeholder"]):
-            self.text_entry.delete(0, len(LANG["en"]["text_placeholder"]))
-        if current_text.startswith(LANG["tr"]["text_placeholder"]):
-            self.text_entry.delete(0, len(LANG["tr"]["text_placeholder"]))
-            
-        if has_focus:
-            # Using after to let Tkinter process the focus_set event
-            self.root.after(10, self.text_entry.focus_set)
+        if not has_focus and not self.text_entry.get():
+            self.text_entry._entry.delete(0, "end")
+            self.text_entry._entry.insert(0, strings["text_placeholder"])
+            self.text_entry._entry.configure(text_color=self.text_entry._placeholder_text_color)
             
         self.send_btn.configure(text=strings["send_btn"])
 
